@@ -1041,10 +1041,16 @@
                 });
             });
 
+            // 3.5 Filter out cities with 0 data across all days
+            const activeCities = cities.filter(city => {
+                const total = datasetsMap[city].reduce((a, b) => a + b, 0);
+                return total > 0;
+            });
+
             // 4. Transform to Chart.js Datasets
-            const chartDatasets = cities.map((city, idx) => {
+            const chartDatasets = activeCities.map((city, idx) => {
                 // Generate distinct colors
-                const hue = (idx * 360 / cities.length) % 360;
+                const hue = (idx * 360 / activeCities.length) % 360;
                 return {
                     label: city,
                     data: datasetsMap[city],
@@ -1081,10 +1087,31 @@
                             ticks: { color: '#94a3b8' }
                         }
                     },
-                    // Interactivity: Click to filter (Simple console log for now, user asked for visual only)
+                    // Interactivity: Click to filter table
                     onClick: (e, elements) => {
                         if (elements.length > 0) {
-                            // Could implement filter logic here later
+                            const index = elements[0].index; // Date index
+                            const datasetIndex = elements[0].datasetIndex; // City index
+
+                            const clickedDate = dates[index];
+                            const clickedCity = chartDatasets[datasetIndex].label;
+
+                            // Set Global Filter
+                            state.dateFilter = { date: clickedDate, city: clickedCity };
+                            applyFilters();
+
+                            // Visual Feedback
+                            showToast(`Filtrando: ${clickedCity} el ${clickedDate.toLocaleDateString()}`, 'info');
+
+                            // Scroll to table
+                            document.getElementById('table-preview-body').scrollIntoView({ behavior: 'smooth' });
+                        } else {
+                            // Clear Filter if clicking background
+                            if (state.dateFilter) {
+                                state.dateFilter = null;
+                                applyFilters();
+                                showToast('Filtro de fecha eliminado', 'info');
+                            }
                         }
                     }
                 }
@@ -1616,6 +1643,9 @@
             const fStatus = document.getElementById('filter-status').value.toLowerCase();
             const fCity = document.getElementById('filter-city').value.toLowerCase();
 
+            // Handle Global Date Filter (from Chart)
+            const dateFilter = state.dateFilter; // { date: DateObj, city: String }
+
             // Filter Logic
             state.filteredContactos = state.contactos.filter(c => {
                 // 1. Text Search (Name, Wsp, Notes, ID)
@@ -1626,7 +1656,38 @@
                 // 3. City Match
                 const cityMatch = !fCity || (c.Ciudad_contacto || '').toLowerCase() === fCity;
 
-                return textMatch && statusMatch && cityMatch;
+                // 4. Date Filter (Active Tour Logic)
+                let dateMatch = true;
+                if (dateFilter) {
+                    // Check if contact is Active on dateFilter.date AND matches dateFilter.city
+                    if (c.Estado_contacto === 'Cancelado') {
+                        dateMatch = false;
+                    } else if (!c.Fecha_inicio_tour || !c.Duracion_dias_tour) {
+                        dateMatch = false;
+                    } else {
+                        // Check City
+                        const cCity = c.Ciudad_contacto || 'Desconocido';
+                        if (cCity !== dateFilter.city) {
+                            dateMatch = false;
+                        } else {
+                            // Check Date overlap
+                            const startTour = new Date(c.Fecha_inicio_tour + 'T00:00:00');
+                            const duration = parseInt(c.Duracion_dias_tour) || 1;
+                            const endTour = new Date(startTour);
+                            endTour.setDate(startTour.getDate() + duration);
+
+                            const filterTime = new Date(dateFilter.date.getFullYear(), dateFilter.date.getMonth(), dateFilter.date.getDate()).getTime();
+                            const sTime = new Date(startTour.getFullYear(), startTour.getMonth(), startTour.getDate()).getTime();
+                            const eTime = new Date(endTour.getFullYear(), endTour.getMonth(), endTour.getDate()).getTime();
+
+                            if (filterTime < sTime || filterTime >= eTime) {
+                                dateMatch = false;
+                            }
+                        }
+                    }
+                }
+
+                return textMatch && statusMatch && cityMatch && dateMatch;
             });
 
             // Reset to Page 1 on filter change
