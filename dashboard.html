@@ -1,0 +1,1807 @@
+<!DOCTYPE html>
+<html lang="es" class="dark">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Administrativo - Turismo</title>
+
+    <!-- LIBRERÍAS EXTERNAS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        slate: { 850: '#151f32', 900: '#0f172a', 950: '#020617' },
+                        primary: { 500: '#6366f1', 600: '#4f46e5' }
+                    },
+                    fontFamily: { sans: ['Inter', 'sans-serif'] }
+                }
+            }
+        }
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;900&display=swap"
+        rel="stylesheet">
+
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+
+        .glass-panel {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .sidebar-link {
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .sidebar-link:hover,
+        .sidebar-link.active {
+            background: rgba(99, 102, 241, 0.1);
+            color: #818cf8;
+            border-right: 3px solid #6366f1;
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #334155;
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #475569;
+        }
+
+        .loading-overlay {
+            animation: pulseBg 2s infinite;
+        }
+
+        @keyframes pulseBg {
+            0% {
+                opacity: 0.8;
+            }
+
+            50% {
+                opacity: 0.4;
+            }
+
+            100% {
+                opacity: 0.8;
+            }
+        }
+    </style>
+</head>
+
+<body class="bg-slate-950 text-slate-200 h-screen flex overflow-hidden selection:bg-indigo-500 selection:text-white">
+
+    <!-- SIDEBAR -->
+    <aside
+        class="w-20 lg:w-64 bg-slate-900 border-r border-slate-800 flex flex-col shrink-0 transition-all duration-300">
+        <div class="h-16 flex items-center justify-center lg:justify-start lg:px-6 border-b border-slate-800">
+            <div
+                class="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white font-black text-lg shadow-lg shadow-indigo-500/20">
+                <i class="fas fa-mountain"></i>
+            </div>
+            <span class="ml-3 font-bold text-lg hidden lg:block tracking-tight text-white">TURISMO<span
+                    class="text-indigo-400">DATA</span></span>
+        </div>
+
+        <nav class="flex-1 py-6 space-y-2 px-2">
+            <a href="#" onclick="switchView('overview')" id="nav-overview"
+                class="sidebar-link active flex items-center gap-4 px-3 py-3 rounded-xl text-slate-400 hover:text-indigo-400 group">
+                <i class="fas fa-chart-pie text-xl w-6 text-center group-hover:scale-110 transition"></i>
+                <span class="font-medium text-sm hidden lg:block">Visión General</span>
+            </a>
+            <a href="#" onclick="switchView('leads')" id="nav-leads"
+                class="sidebar-link flex items-center gap-4 px-3 py-3 rounded-xl text-slate-400 hover:text-indigo-400 group">
+                <i class="fas fa-users text-xl w-6 text-center group-hover:scale-110 transition"></i>
+                <span class="font-medium text-sm hidden lg:block">Base de Contactos</span>
+            </a>
+            <a href="#" onclick="switchView('form')" id="nav-form"
+                class="sidebar-link flex items-center gap-4 px-3 py-3 rounded-xl text-slate-400 hover:text-emerald-400 group">
+                <i
+                    class="fas fa-plus-circle text-xl w-6 text-center group-hover:scale-110 transition text-emerald-500"></i>
+                <span class="font-medium text-sm hidden lg:block text-emerald-400">Nuevo Contacto</span>
+            </a>
+        </nav>
+
+        <div class="p-4 border-t border-slate-800">
+            <div id="status-pill"
+                class="flex items-center justify-center lg:justify-start gap-2 py-2 px-3 bg-slate-800/50 rounded-lg text-xs font-mono text-emerald-400">
+                <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                <span class="hidden lg:block uppercase tracking-wider font-bold">Conectado</span>
+            </div>
+        </div>
+    </aside>
+
+    <!-- CONTENT -->
+    <main class="flex-1 flex flex-col h-full overflow-hidden relative">
+        <!-- HEADER -->
+        <header
+            class="h-16 bg-slate-900/50 backdrop-blur-md border-b border-slate-800 flex items-center justify-between px-8 z-20">
+            <h2 id="page-title" class="text-xl font-bold text-white tracking-tight">Dashboard</h2>
+            <div class="flex items-center gap-4">
+                <button onclick="refreshData()"
+                    class="p-2 text-slate-400 hover:text-white transition rounded-full hover:bg-slate-800"
+                    title="Actualizar Datos">
+                    <i class="fas fa-sync-alt" id="refresh-icon"></i>
+                </button>
+                <div
+                    class="w-8 h-8 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-500 border border-white/20">
+                </div>
+            </div>
+        </header>
+
+        <!-- SCROLLABLE CONTENT -->
+        <div id="content-area" class="flex-1 overflow-y-auto p-4 lg:p-8 scroll-smooth relative">
+
+            <!-- VIEW: OVERVIEW -->
+            <div id="view-overview" class="space-y-6 max-w-7xl mx-auto fade-in">
+                <!-- KPI CARDS -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div class="glass-panel p-5 rounded-2xl relative overflow-hidden group">
+                        <div
+                            class="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition transform group-hover:scale-110">
+                            <i class="fas fa-wallet text-6xl text-emerald-400"></i>
+                        </div>
+                        <p class="text-slate-400 text-xs font-bold uppercase tracking-widest mb-1">Ingresos Estimados
+                        </p>
+                        <h3 class="text-3xl font-black text-white" id="kpi-ingresos">S/ --</h3>
+                        <p class="text-emerald-400 text-[10px] font-bold mt-2 flex items-center gap-1">
+                            <i class="fas fa-arrow-up"></i> <span id="kpi-ingresos-meta">Monto Cotizado (últimos 30
+                                días)</span>
+                        </p>
+                    </div>
+
+                    <div class="glass-panel p-5 rounded-2xl relative overflow-hidden group">
+                        <div
+                            class="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition transform group-hover:scale-110">
+                            <i class="fas fa-calendar-check text-6xl text-indigo-400"></i>
+                        </div>
+                        <p class="text-slate-400 text-xs font-bold uppercase tracking-widest mb-1">Total Leads</p>
+                        <h3 class="text-3xl font-black text-white" id="kpi-leads">--</h3>
+                        <p class="text-indigo-400 text-[10px] font-bold mt-2">Registrados en Sheet</p>
+                    </div>
+
+                    <div class="glass-panel p-5 rounded-2xl relative overflow-hidden group">
+                        <div
+                            class="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition transform group-hover:scale-110">
+                            <i class="fas fa-fire text-6xl text-amber-400"></i>
+                        </div>
+                        <p class="text-slate-400 text-xs font-bold uppercase tracking-widest mb-1">Paquete Top</p>
+                        <h3 class="text-xl font-black text-white truncate" id="kpi-top-package">--</h3>
+                        <p class="text-amber-400 text-[10px] font-bold mt-2">Más solicitado</p>
+                    </div>
+
+                    <div class="glass-panel p-5 rounded-2xl relative overflow-hidden group">
+                        <div
+                            class="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition transform group-hover:scale-110">
+                            <i class="fas fa-map-marker-alt text-6xl text-rose-400"></i>
+                        </div>
+                        <p class="text-slate-400 text-xs font-bold uppercase tracking-widest mb-1">Origen Principal</p>
+                        <h3 class="text-2xl font-black text-white" id="kpi-top-city">--</h3>
+                        <p class="text-rose-400 text-[10px] font-bold mt-2">Mayor afluencia</p>
+                    </div>
+                </div>
+
+                <!-- CHARTS ROW 1 -->
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 h-96">
+                    <!-- MAIN CHART -->
+                    <div class="lg:col-span-2 glass-panel p-6 rounded-2xl flex flex-col">
+                        <div class="flex justify-between items-center mb-6">
+                            <h3 class="font-bold text-sm text-slate-300 uppercase tracking-wide">Evolución de Leads
+                                (Últimos 30 días)</h3>
+                            <select id="time-filter"
+                                class="bg-slate-800 border-none text-xs rounded-lg px-2 py-1 text-slate-300 outline-none">
+                                <option value="diario">Diario</option>
+                                <option value="semanal">Semanal</option>
+                            </select>
+                        </div>
+                        <div class="flex-1 relative w-full h-full min-h-0">
+                            <canvas id="chart-timeline"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- DONUT CHART -->
+                    <div class="glass-panel p-6 rounded-2xl flex flex-col">
+                        <h3 class="font-bold text-sm text-slate-300 uppercase tracking-wide mb-6">Origen de Turistas
+                        </h3>
+                        <div class="flex-1 relative flex items-center justify-center">
+                            <canvas id="chart-origin"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- CHARTS ROW 2 -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 h-80">
+                    <!-- BAR CHART -->
+                    <div class="glass-panel p-6 rounded-2xl flex flex-col">
+                        <h3 class="font-bold text-sm text-slate-300 uppercase tracking-wide mb-4">Top 5 Paquetes
+                            Vendidos</h3>
+                        <div class="flex-1 relative w-full h-full min-h-0">
+                            <canvas id="chart-packages"></canvas>
+                        </div>
+                    </div>
+                    <!-- TABLE PREVIEW -->
+                    <div class="glass-panel p-6 rounded-2xl flex flex-col overflow-hidden">
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="font-bold text-sm text-slate-300 uppercase tracking-wide">Últimos Registros</h3>
+                            <button onclick="switchView('leads')"
+                                class="text-xs text-indigo-400 hover:text-indigo-300 font-bold">Ver Todo</button>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left text-xs">
+                                <thead class="text-slate-500 font-semibold border-b border-slate-700">
+                                    <tr>
+                                        <th class="pb-3 pl-2">Nombre</th>
+                                        <th class="pb-3 text-center">Fecha</th>
+                                        <th class="pb-3 text-right">Monto</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="table-preview-body" class="divide-y divide-slate-800 text-slate-300"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- VIEW: LEADS TABLE -->
+            <div id="view-leads" class="hidden space-y-6 max-w-7xl mx-auto fade-in">
+                <!-- TABLE CONTROLS: SEARCH & FILTER -->
+                <div
+                    class="glass-panel p-4 mb-4 rounded-2xl flex flex-col sm:flex-row gap-4 justify-between items-center">
+                    <h3 class="font-bold text-lg hidden sm:block pl-2">Base de Datos</h3>
+
+                    <!-- Search -->
+                    <div class="relative w-full sm:w-96">
+                        <i class="fas fa-search absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-500"></i>
+                        <input type="text" id="table-search" oninput="applyFilters()"
+                            class="w-full bg-slate-900/50 border border-slate-700 rounded-xl py-2 pl-10 pr-4 text-sm text-white focus:border-indigo-500 outline-none transition"
+                            placeholder="Buscar por Nombre, WhatsApp o Notas...">
+                    </div>
+
+                    <!-- Filters -->
+                    <div class="flex flex-wrap gap-2 w-full sm:w-auto">
+                        <select id="filter-status" onchange="applyFilters()"
+                            class="bg-slate-900/50 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-300 focus:border-indigo-500 outline-none">
+                            <option value="">Todos los Estados</option>
+                            <option value="Lead">Lead</option>
+                            <option value="Info_enviada">Info_enviada</option>
+                            <option value="Reserva_Turista">Reserva_Turista</option>
+                            <option value="Cancelado">Cancelado</option>
+                        </select>
+                        <select id="filter-city" onchange="applyFilters()"
+                            class="bg-slate-900/50 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-300 focus:border-indigo-500 outline-none">
+                            <option value="">Cargando ciudades...</option>
+                        </select>
+
+                        <!-- Export Button -->
+                        <button onclick="openExportModal()"
+                            class="bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg px-3 py-2 text-xs font-bold transition flex items-center gap-2 shadow-lg shadow-emerald-900/20">
+                            <i class="fas fa-file-csv"></i> Exportar
+                        </button>
+                    </div>
+                </div>
+
+                <div class="glass-panel p-1 rounded-3xl border border-slate-700 shadow-2xl overflow-hidden">
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-sm">
+                            <thead
+                                class="hidden md:table-header-group bg-slate-800 text-slate-400 font-bold uppercase text-xs sticky top-0 z-10">
+                                <tr>
+                                    <th class="p-4 text-left">ID</th>
+                                    <th class="p-4 text-left">Nombre</th>
+                                    <th class="p-4 text-left">WhatsApp</th>
+                                    <th class="p-4 text-left">Ciudad</th>
+                                    <th class="p-4 text-left">Tour</th>
+                                    <th class="p-4 text-center">N° Pers.</th>
+                                    <th class="p-4 text-center">Estado</th>
+                                    <th class="p-4 text-right">Monto</th>
+                                </tr>
+                            </thead>
+                            <tbody id="full-table-body"
+                                class="divide-y divide-slate-800 text-slate-300 bg-slate-900/40"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+
+                <!-- PAGINATION CONTROLS -->
+                <div class="flex flex-col sm:flex-row justify-between items-center gap-4 mt-4 text-slate-400 text-sm">
+                    <span class="order-2 sm:order-1">
+                        Mostrando <span id="page-info-start" class="font-bold text-white">0</span> - <span
+                            id="page-info-end" class="font-bold text-white">0</span> de <span id="page-info-total"
+                            class="font-bold text-white">0</span> contactos
+                    </span>
+                    <div class="flex gap-2 order-1 sm:order-2">
+                        <button id="btn-first" onclick="goToPage(1)" disabled
+                            class="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition flex items-center gap-2"
+                            title="Ir al Inicio">
+                            <i class="fas fa-angle-double-left"></i> <span class="hidden sm:inline">Inicio</span>
+                        </button>
+                        <button id="btn-prev" onclick="changePage(-1)" disabled
+                            class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition flex items-center gap-2">
+                            <i class="fas fa-chevron-left"></i> Anterior
+                        </button>
+                        <button id="btn-next" onclick="changePage(1)" disabled
+                            class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition flex items-center gap-2">
+                            Siguiente <i class="fas fa-chevron-right"></i>
+                        </button>
+                        <button id="btn-last" onclick="goToPage('last')" disabled
+                            class="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition flex items-center gap-2"
+                            title="Ir al Final">
+                            <span class="hidden sm:inline">Final</span> <i class="fas fa-angle-double-right"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- VIEW: FORM -->
+            <div id="view-form" class="hidden h-full flex flex-col justify-center items-center fade-in">
+                <div class="w-full max-w-lg">
+                    <div class="text-center mb-8">
+                        <div
+                            class="w-16 h-16 bg-emerald-500/10 text-emerald-500 rounded-2xl flex items-center justify-center text-3xl mx-auto mb-4 border border-emerald-500/20 shadow-[0_0_30px_rgba(16,185,129,0.2)]">
+                            <i class="fas fa-user-plus"></i>
+                        </div>
+                        <h2 class="text-3xl font-black text-white mb-2">Nuevo Contacto</h2>
+                        <p class="text-slate-400">Registra manualmente un lead para iniciar el flujo automático.</p>
+                    </div>
+
+                    <form id="contact-form" onsubmit="submitForm(event)" autocomplete="off"
+                        class="glass-panel p-8 rounded-3xl space-y-5 border border-slate-700 shadow-2xl relative overflow-hidden">
+                        <div id="form-loading"
+                            class="absolute inset-0 bg-slate-900/80 z-20 hidden flex items-center justify-center flex-col gap-4 backdrop-blur-sm">
+                            <div
+                                class="w-10 h-10 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin">
+                            </div>
+                            <span class="font-bold text-emerald-400 animate-pulse">Enviando Datos...</span>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-4">
+                            <div class="space-y-2">
+                                <label
+                                    class="text-[10px] font-bold text-indigo-400 uppercase tracking-widest pl-1">Nombre</label>
+                                <input type="text" name="nombre" required
+                                    class="w-full bg-slate-950/50 border border-slate-700 rounded-xl p-3 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none transition"
+                                    placeholder="Ej: Juan Pérez">
+                            </div>
+                            <div class="space-y-2">
+                                <label
+                                    class="text-[10px] font-bold text-indigo-400 uppercase tracking-widest pl-1">WhatsApp</label>
+                                <input type="tel" name="whatsapp" required
+                                    class="w-full bg-slate-950/50 border border-slate-700 rounded-xl p-3 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none transition"
+                                    placeholder="Ej: 51999888777">
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-4">
+                            <div class="space-y-2">
+                                <label class="text-[10px] font-bold text-indigo-400 uppercase tracking-widest pl-1">DNI
+                                    / Pasaporte</label>
+                                <input type="text" name="dni"
+                                    class="w-full bg-slate-950/50 border border-slate-700 rounded-xl p-3 text-sm focus:border-indigo-500 outline-none transition"
+                                    placeholder="Opcional">
+                            </div>
+                            <div class="space-y-2">
+                                <label
+                                    class="text-[10px] font-bold text-indigo-400 uppercase tracking-widest pl-1">Ciudad
+                                    Origen</label>
+                                <select name="ciudad" id="form-ciudad"
+                                    class="w-full bg-slate-950/50 border border-slate-700 rounded-xl p-3 text-sm focus:border-indigo-500 outline-none transition text-slate-300">
+                                    <option value="" disabled selected>Cargando ciudades...</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-4">
+                            <div class="space-y-2">
+                                <label class="text-[10px] font-bold text-indigo-400 uppercase tracking-widest pl-1">Tour
+                                    de Interés</label>
+                                <!-- Form Multi-Select Container -->
+                                <div id="form-tour-multiselect-container"
+                                    class="w-full bg-slate-950/50 border border-slate-700 rounded-xl p-2 text-sm focus-within:border-indigo-500 focus-within:ring-1 focus-within:ring-indigo-500 transition relative">
+                                    <div id="form-tags-list" class="flex flex-wrap gap-2 mb-2"></div>
+                                    <div class="relative">
+                                        <input type="text" id="form-tour-input"
+                                            class="w-full bg-transparent border-none p-0 text-sm focus:ring-0 placeholder-slate-500 text-white"
+                                            placeholder="Escribe para buscar..." autocomplete="off">
+                                        <!-- Dropdown -->
+                                        <div id="form-tour-dropdown"
+                                            class="hidden absolute left-0 top-full mt-2 w-full bg-slate-900 border border-slate-700 rounded-lg shadow-xl z-50 max-h-48 overflow-y-auto">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="space-y-2">
+                                <label class="text-[10px] font-bold text-indigo-400 uppercase tracking-widest pl-1">N°
+                                    Personas</label>
+                                <input type="number" name="numero_personas" min="1"
+                                    class="w-full bg-slate-950/50 border border-slate-700 rounded-xl p-3 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none transition"
+                                    placeholder="1">
+                            </div>
+                            <div class="space-y-2">
+                                <label
+                                    class="text-[10px] font-bold text-indigo-400 uppercase tracking-widest pl-1">Estado
+                                    Contacto</label>
+                                <select name="estado"
+                                    class="w-full bg-slate-950/50 border border-slate-700 rounded-xl p-3 text-sm focus:border-indigo-500 outline-none transition text-slate-300">
+                                    <option value="Lead">Lead</option>
+                                    <option value="Info_enviada">Info_enviada</option>
+                                    <option value="Reserva_Turista">Reserva_Turista</option>
+                                    <option value="Cancelado">Cancelado</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-4">
+                            <div class="space-y-2">
+                                <label
+                                    class="text-[10px] font-bold text-indigo-400 uppercase tracking-widest pl-1">Punto
+                                    de Embarque</label>
+                                <input type="text" name="punto_embarque"
+                                    class="w-full bg-slate-950/50 border border-slate-700 rounded-xl p-3 text-sm focus:border-indigo-500 outline-none transition"
+                                    placeholder="Lugar de recojo">
+                            </div>
+                            <div class="space-y-2">
+                                <label
+                                    class="text-[10px] font-bold text-indigo-400 uppercase tracking-widest pl-1">Monto
+                                    Cotizado (S/)</label>
+                                <input type="number" step="0.1" name="monto"
+                                    class="w-full bg-slate-950/50 border border-slate-700 rounded-xl p-3 text-sm focus:border-indigo-500 outline-none transition"
+                                    placeholder="0.00">
+                            </div>
+                        </div>
+
+                        <div class="space-y-2">
+                            <label class="text-[10px] font-bold text-indigo-400 uppercase tracking-widest pl-1">Notas /
+                                Observaciones</label>
+                            <textarea name="notas" rows="2"
+                                class="w-full bg-slate-950/50 border border-slate-700 rounded-xl p-3 text-sm focus:border-indigo-500 outline-none transition"
+                                placeholder="Detalles adicionales..."></textarea>
+                        </div>
+
+
+
+                        <button type="submit"
+                            class="w-full py-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold shadow-lg shadow-emerald-900/50 transition transform active:scale-95 flex items-center justify-center gap-2 mt-4 group">
+                            <span>REGISTRAR CONTACTO</span>
+                            <i class="fas fa-paper-plane group-hover:translate-x-1 transition"></i>
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- NOTIFICATION SYSTEM -->
+    <div id="toast-container" class="fixed bottom-5 right-5 z-50 flex flex-col gap-3 pointer-events-none"></div>
+
+    <!-- CONTACT DETAILS MODAL -->
+    <div id="contact-modal" class="fixed inset-0 z-[60] hidden" aria-labelledby="modal-title" role="dialog"
+        aria-modal="true">
+        <!-- Backdrop -->
+        <div class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm transition-opacity opacity-0" id="modal-backdrop">
+        </div>
+
+        <div class="fixed inset-0 z-10 overflow-y-auto">
+            <div class="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
+                <!-- Modal Panel -->
+                <div class="relative transform overflow-hidden rounded-2xl bg-slate-900 border border-slate-700 text-left shadow-2xl transition-all sm:my-8 sm:w-full sm:max-w-2xl opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+                    id="modal-panel">
+
+                    <!-- Header -->
+                    <div class="bg-slate-800/50 px-6 py-4 border-b border-slate-700 flex justify-between items-center">
+                        <div>
+                            <h3 class="text-xl font-bold text-white" id="modal-title">Detalles del Contacto</h3>
+                            <p class="text-sm text-slate-400 mt-1" id="modal-id">C-000000</p>
+                        </div>
+                        <button type="button" onclick="closeContactModal()"
+                            class="text-slate-400 hover:text-white transition">
+                            <i class="fas fa-times text-xl"></i>
+                        </button>
+                    </div>
+
+                    <!-- Body -->
+                    <div class="px-6 py-6 space-y-6">
+                        <!-- Main Info -->
+                        <div class="flex items-start gap-4">
+                            <div
+                                class="w-16 h-16 rounded-full bg-indigo-500/20 flex items-center justify-center text-indigo-400 text-2xl font-bold shrink-0">
+                                <i class="fas fa-user"></i>
+                            </div>
+                            <div class="flex-1 space-y-3">
+                                <input type="text" id="modal-nombre" disabled
+                                    class="w-full bg-transparent border-none text-2xl font-bold text-white focus:bg-slate-800/50 focus:ring-2 focus:ring-indigo-500 rounded p-1 transition"
+                                    value="Nombre Completo">
+
+                                <div class="flex flex-wrap gap-3">
+                                    <div class="relative">
+                                        <i
+                                            class="fab fa-whatsapp absolute left-3 top-1/2 -translate-y-1/2 text-emerald-400 text-xs"></i>
+                                        <input type="text" id="modal-whatsapp" disabled
+                                            class="pl-8 w-40 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-medium rounded-full py-1 focus:bg-slate-800 disabled:opacity-100"
+                                            value="+51 999 999 999">
+                                    </div>
+                                    <div class="relative">
+                                        <i
+                                            class="fas fa-map-marker-alt absolute left-3 top-1/2 -translate-y-1/2 text-blue-400 text-xs"></i>
+                                        <select id="modal-ciudad" disabled
+                                            class="pl-8 appearance-none bg-blue-500/10 border border-blue-500/20 text-blue-400 text-xs font-medium rounded-full py-1 pr-4 focus:bg-slate-800 disabled:opacity-100">
+                                            <option value="">Cargando...</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Grid Details -->
+                        <div
+                            class="grid grid-cols-1 sm:grid-cols-2 gap-6 bg-slate-950/30 p-4 rounded-xl border border-slate-800">
+                            <div>
+                                <label
+                                    class="text-[10px] uppercase tracking-wider text-slate-500 font-bold block mb-1">Tours
+                                    de Interés</label>
+                                <!-- Tag Input Container -->
+                                <div id="tour-multiselect-container"
+                                    class="w-full bg-transparent border-none text-slate-200 font-medium text-sm p-0 focus-within:ring-0 relative">
+                                    <!-- Selected Tags -->
+                                    <div id="tour-tags-list" class="flex flex-wrap gap-2 mb-2"></div>
+
+                                    <!-- Input & Dropdown -->
+                                    <div class="relative group">
+                                        <input type="text" id="tour-input" disabled
+                                            class="w-full bg-slate-800/50 rounded-lg px-2 py-1 text-sm border border-slate-700 focus:border-indigo-500 outline-none disabled:bg-transparent disabled:border-none disabled:p-0 transition placeholder-slate-600"
+                                            placeholder="Añadir tour..." autocomplete="off">
+
+                                        <!-- Dropdown (Hidden via CSS initially) -->
+                                        <div id="tour-dropdown-list"
+                                            class="hidden absolute left-0 top-full mt-1 w-full bg-slate-800 border border-slate-700 rounded-lg shadow-xl z-50 max-h-48 overflow-y-auto">
+                                            <!-- Options populated by JS -->
+                                        </div>
+                                    </div>
+                                    <!-- Hidden input to store CSV for traditional form access if needed, though we use state -->
+                                </div>
+                            </div>
+                            <div>
+                                <label
+                                    class="text-[10px] uppercase tracking-wider text-slate-500 font-bold block mb-1">N°
+                                    Personas</label>
+                                <input type="number" id="modal-personas" disabled
+                                    class="w-full bg-slate-800/50 rounded-lg px-2 py-1 text-sm border border-slate-700 focus:border-indigo-500 outline-none disabled:bg-transparent disabled:border-none disabled:p-0 transition placeholder-slate-600 font-medium text-white"
+                                    placeholder="-">
+                            </div>
+                            <div>
+                                <label
+                                    class="text-[10px] uppercase tracking-wider text-slate-500 font-bold block mb-1">Estado</label>
+                                <select id="modal-estado" disabled
+                                    class="w-full bg-transparent border-none text-xs font-medium text-slate-300 p-0 focus:ring-0 disabled:opacity-100 uppercase">
+                                    <option value="Lead">Lead</option>
+                                    <option value="Info_enviada">Info_enviada</option>
+                                    <option value="Reserva_Turista">Reserva_Turista</option>
+                                    <option value="Cancelado">Cancelado</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label
+                                    class="text-[10px] uppercase tracking-wider text-slate-500 font-bold block mb-1">DNI
+                                    / Pasaporte</label>
+                                <input type="text" id="modal-dni" disabled
+                                    class="w-full bg-transparent border-none text-slate-200 font-mono text-sm p-0 focus:ring-0 disabled:opacity-100"
+                                    value="-">
+                            </div>
+                            <div>
+                                <label
+                                    class="text-[10px] uppercase tracking-wider text-slate-500 font-bold block mb-1">Punto
+                                    de Embarque</label>
+                                <input type="text" id="modal-embarque" disabled
+                                    class="w-full bg-transparent border-none text-slate-200 text-sm p-0 focus:ring-0 disabled:opacity-100"
+                                    value="-">
+                            </div>
+                            <div>
+                                <label
+                                    class="text-[10px] uppercase tracking-wider text-slate-500 font-bold block mb-1">Monto
+                                    Cotizado</label>
+                                <div class="flex items-center text-emerald-400 font-bold text-lg">
+                                    <span>S/</span>
+                                    <input type="number" id="modal-monto" disabled
+                                        class="ml-2 w-24 bg-transparent border-none text-emerald-400 font-bold p-0 focus:ring-0 disabled:opacity-100"
+                                        value="0.00">
+                                </div>
+                            </div>
+                            <div>
+                                <label
+                                    class="text-[10px] uppercase tracking-wider text-slate-500 font-bold block mb-1">Último
+                                    Contacto</label>
+                                <p class="text-slate-500 text-sm" id="modal-fecha-contacto">-</p>
+                            </div>
+                        </div>
+
+                        <!-- Notes & Meta -->
+                        <div>
+                            <label
+                                class="text-[10px] uppercase tracking-wider text-slate-500 font-bold block mb-2">Notas /
+                                Observaciones</label>
+                            <textarea id="modal-notas" disabled rows="2"
+                                class="w-full bg-slate-800/50 rounded-lg p-3 text-sm text-slate-300 italic min-h-[60px] border-none focus:ring-1 focus:ring-indigo-500 disabled:resize-none"></textarea>
+                        </div>
+
+                        <div
+                            class="border-t border-slate-800 pt-4 flex justify-between items-center text-xs text-slate-500">
+                            <span id="modal-origen">Origen: web_dashboard</span>
+                            <span id="modal-registro">Registrado: -</span>
+                        </div>
+                    </div>
+
+                    <!-- Footer -->
+                    <div class="bg-slate-800/50 px-6 py-4 flex justify-end gap-3 border-t border-slate-700">
+                        <!-- View Mode Buttons -->
+                        <div id="modal-btns-view" class="flex gap-3">
+                            <button type="button" onclick="closeContactModal()"
+                                class="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-sm font-medium transition">
+                                Cerrar
+                            </button>
+                            <button type="button" onclick="enableEditMode()"
+                                class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-sm font-medium transition flex items-center gap-2 shadow-lg shadow-indigo-900/20">
+                                <i class="fas fa-edit"></i> Editar
+                            </button>
+                            <a href="#" id="modal-btn-wsp" target="_blank"
+                                class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-sm font-medium transition flex items-center gap-2 shadow-lg shadow-emerald-900/20">
+                                <i class="fab fa-whatsapp"></i> Contactar
+                            </a>
+                        </div>
+
+                        <!-- Edit Mode Buttons -->
+                        <div id="modal-btns-edit" class="hidden flex gap-3">
+                            <button type="button" onclick="disableEditMode()"
+                                class="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-sm font-medium transition">
+                                Cancelar
+                            </button>
+                            <button type="button" onclick="saveContactChanges()"
+                                class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-sm font-medium transition flex items-center gap-2 shadow-lg shadow-emerald-900/20 animate-pulse">
+                                <i class="fas fa-save"></i> Guardar Cambios
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- EXPORT MODAL -->
+    <div id="export-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center">
+        <div id="export-backdrop" class="absolute inset-0 bg-black/80 backdrop-blur-sm transition-opacity opacity-0">
+        </div>
+        <div id="export-panel"
+            class="relative bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-sm p-6 shadow-2xl transform transition-all scale-95 opacity-0 translate-y-4">
+            <h3 class="text-xl font-bold text-white mb-4">Exportar Contactos</h3>
+
+            <div class="space-y-4">
+                <!-- Option 1: Month -->
+                <div>
+                    <label class="text-xs text-slate-400 font-bold uppercase block mb-2">Por Mes</label>
+                    <input type="month" id="export-month"
+                        class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white text-sm focus:border-emerald-500 outline-none">
+                    <button onclick="downloadExport('month')"
+                        class="mt-2 w-full bg-slate-700 hover:bg-slate-600 text-white py-2 rounded-lg text-sm transition">Descargar
+                        Mes</button>
+                </div>
+
+                <div class="border-t border-slate-800"></div>
+
+                <!-- Option 2: Day -->
+                <div>
+                    <label class="text-xs text-slate-400 font-bold uppercase block mb-2">Por Día</label>
+                    <input type="date" id="export-day"
+                        class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white text-sm focus:border-emerald-500 outline-none">
+                    <button onclick="downloadExport('day')"
+                        class="mt-2 w-full bg-slate-700 hover:bg-slate-600 text-white py-2 rounded-lg text-sm transition">Descargar
+                        Día</button>
+                </div>
+
+                <div class="border-t border-slate-800"></div>
+
+                <!-- Option 3: All -->
+                <button onclick="downloadExport('all')"
+                    class="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-3 rounded-lg font-bold shadow-lg shadow-emerald-900/20 transition">
+                    Descargar Todo
+                </button>
+            </div>
+
+            <button onclick="closeExportModal()" class="absolute top-4 right-4 text-slate-500 hover:text-white">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // --- CONSTANTS & CONFIG ---
+        const SHEET_CSV_CONTACTOS = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRBnkhcj5Gp9QMwMJmr1p1z6gcw3wShIC247dJ3V3qzwkEwkZEwJqroj3LIh826G4CaPBdZQAEIGoD0/pub?gid=0&single=true&output=csv';
+        const SHEET_CSV_PAQUETES = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRBnkhcj5Gp9QMwMJmr1p1z6gcw3wShIC247dJ3V3qzwkEwkZEwJqroj3LIh826G4CaPBdZQAEIGoD0/pub?gid=245309544&single=true&output=csv';
+        // Using direct gviz URL for the new tab as it might not be published to web as 'pub' yet, or just for consistency with manual GID provided.
+        // Actually, for public sheets, the /pub?gid=... format is often used for 'Published to Web'.
+        // But the user gave me a GID from the edit URL. The safest and most immediate way for private-ish sheets that are shared with "Anyone with link" is often gviz or the export call.
+        // Let's use the export format which consistently works for GIDs if the sheet is open.
+        // https://docs.google.com/spreadsheets/d/[ID]/export?format=csv&gid=[GID]
+        // But the existing ones use /pub? which implies "File > Share > Publish to Web".
+        // The user might not have "Published to Web" the specific tab.
+        // I'll try the /export format first which is usually robust if the sheet is generally public/shared.
+        // ID: 16qnWmfEMjb0OJ_I_xMypB279m_a5jOg1V1l1sqbCcNA
+        // GID: 127481278
+        const SHEET_CSV_CIUDADES = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRBnkhcj5Gp9QMwMJmr1p1z6gcw3wShIC247dJ3V3qzwkEwkZEwJqroj3LIh826G4CaPBdZQAEIGoD0/pub?gid=127481278&single=true&output=csv';
+        const WEBHOOK_URL = 'https://nonisotropic-ungrindable-kristie.ngrok-free.dev/webhook/update-dashboard'; // Public Tunnel URL for Netlify
+
+        // --- STATE ---
+        let state = {
+            contactos: [],
+            paquetes: [],
+            ciudades: [], // Added cities state
+            filteredContactos: [],
+            currentPage: 1,
+            rowsPerPage: 10,
+            loading: true
+        };
+
+        // --- CHART INSTANCES ---
+        let charts = {};
+
+        // --- INITIALIZATION ---
+        window.onload = async () => {
+            await Promise.all([
+                fetchData(SHEET_CSV_CONTACTOS, 'contactos'),
+                fetchData(SHEET_CSV_PAQUETES, 'paquetes'),
+                fetchData(SHEET_CSV_CIUDADES, 'ciudades')
+            ]);
+            initUI();
+            try {
+                setupTourInput();
+            } catch (e) {
+                console.error("Setup Tour Input Failed:", e);
+                // Continue execution even if tour input setup fails
+            }
+            updateDashboard();
+            try {
+                checkUrlForMagicLink();
+            } catch (e) {
+                console.error("Magic Link Failed:", e);
+                showToast("Error procesando enlace de cliente", "error");
+            }
+        };
+
+        // --- MAGIC LINK LOGIC ---
+        function checkUrlForMagicLink() {
+            const params = new URLSearchParams(window.location.search);
+            let phone = params.get('telefono');
+
+            if (phone) {
+                console.log("Magic Link detected for:", phone);
+
+                // Switch to leads view to ensure modal context is correct
+                switchView('leads');
+
+                // Normalize query phone: keep only last 9 digits to avoid +51/spaces issues
+                const cleanQuery = phone.replace(/\D/g, '').slice(-9);
+
+                const contact = state.contactos.find(c => {
+                    if (!c.Numero_whatsapp) return false;
+                    const cleanContact = c.Numero_whatsapp.replace(/\D/g, '').slice(-9);
+                    return cleanContact === cleanQuery;
+                });
+
+                if (contact) {
+                    showToast(`Cargando contacto: ${contact.Nombre}`, 'success');
+                    console.log("Contact match found:", contact);
+
+                    // Small delay to allow view transition
+                    setTimeout(() => {
+                        openContactModal(contact.ID);
+                        setTimeout(() => {
+                            enableEditMode();
+                        }, 300);
+                    }, 500);
+                } else {
+                    console.warn("No match found for", cleanQuery);
+                    showToast(`No se encontró cliente con celular: ${phone}`, 'error');
+                }
+            }
+        }
+
+        // --- DATA FETCHING ---
+        async function fetchData(url, key) {
+            return new Promise((resolve) => {
+                Papa.parse(url, {
+                    download: true,
+                    header: true,
+                    skipEmptyLines: true,
+                    complete: function (results) {
+                        state[key] = results.data;
+                        console.log(`Loaded ${key}:`, state[key].length);
+                        resolve();
+                    },
+                    error: function (err) {
+                        console.error(`Error loading ${key}`, err);
+                        showToast(`Error cargando ${key}`, 'error');
+                        resolve(); // Resolve anyway to not block UI
+                    }
+                });
+            });
+        }
+
+        async function refreshData() {
+            const btn = document.getElementById('refresh-icon');
+            btn.classList.add('animate-spin');
+            await Promise.all([fetchData(SHEET_CSV_CONTACTOS, 'contactos'), fetchData(SHEET_CSV_PAQUETES, 'paquetes')]);
+            updateDashboard();
+            btn.classList.remove('animate-spin');
+            showToast('Datos actualizados', 'success');
+        }
+
+        // --- UI LOGIC ---
+        function initUI() {
+            // Populate Tours Select - LEGACY REMOVED (Now using Multi-Select)
+            // const sel = document.getElementById('tour-select');
+            // if(sel) { ... }
+
+
+            // Populate Cities (Filter, Modal, Form)
+            const cityOptions = state.ciudades.map(c => c.ciudad).filter(c => c); // Extract city names
+            // Add 'Otro' if not present (optional, but good UX)
+            // User requested explicit list ending with Otro, assuming Sheet has it. If not, we can rely on Sheet.
+
+            const citySelects = ['filter-city', 'modal-ciudad', 'form-ciudad'];
+
+            citySelects.forEach(id => {
+                const el = document.getElementById(id);
+                if (!el) return;
+
+                // Determine default first option
+                let defaultTxt = (id === 'filter-city') ? 'Todas las Ciudades' : 'Selecciona Ciudad...';
+                let defaultVal = (id === 'filter-city') ? '' : '';
+
+                let html = `<option value="${defaultVal}" ${id !== 'filter-city' ? 'disabled selected' : ''}>${defaultTxt}</option>`;
+
+                cityOptions.forEach(city => {
+                    html += `<option value="${city}">${city}</option>`;
+                });
+
+                el.innerHTML = html;
+            });
+        }
+
+        function updateDashboard() {
+            updateKPIs();
+            renderCharts();
+            renderTablePreview();
+            applyFilters(); // Re-applies filters and (re)renders table
+        }
+
+        function updateKPIs() {
+            // 1. Ingresos (Last 30 Days)
+            const limitDate = new Date();
+            limitDate.setDate(limitDate.getDate() - 30);
+
+            const total = state.contactos.reduce((sum, c) => {
+                const regDate = c.Fecha_registro ? new Date(c.Fecha_registro.replace(' ', 'T')) : new Date(0); // Handle missing dates safe + ISO Fix
+                // Filter: Last 30 days AND NOT Cancelled
+                if (regDate >= limitDate && c.Estado_contacto !== 'Cancelado') {
+                    return sum + (parseFloat(c.Monto_cotizado) || 0);
+                }
+                return sum;
+            }, 0);
+            document.getElementById('kpi-ingresos').innerText = `S/ ${total.toLocaleString('es-PE', { minimumFractionDigits: 0 })}`;
+
+            // 2. Leads
+            document.getElementById('kpi-leads').innerText = state.contactos.length;
+
+            // 3. Top Package
+            const counts = {};
+            state.contactos.forEach(c => { if (c.Tour_interes) counts[c.Tour_interes] = (counts[c.Tour_interes] || 0) + 1; });
+            const topPkg = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
+            document.getElementById('kpi-top-package').innerText = topPkg ? topPkg[0] : 'N/A';
+
+            // 4. Top City
+            const cities = {};
+            state.contactos.forEach(c => {
+                let city = c.Ciudad_contacto || 'Desconocido';
+                cities[city] = (cities[city] || 0) + 1;
+            });
+            const topCity = Object.entries(cities).sort((a, b) => b[1] - a[1])[0];
+            document.getElementById('kpi-top-city').innerText = topCity ? topCity[0] : 'N/A';
+        }
+
+        function renderCharts() {
+            renderTimelineChart();
+            renderOriginChart();
+            renderPackagesChart();
+        }
+
+        function renderTimelineChart() {
+            const ctx = document.getElementById('chart-timeline').getContext('2d');
+            if (charts.timeline) charts.timeline.destroy();
+
+            // Group by date
+            const grouped = {};
+            state.contactos.forEach(c => {
+                if (!c.Fecha_registro) return;
+                // Parse date assuming DD/MM/YYYY or YYYY-MM-DD
+                let d = c.Fecha_registro.split(' ')[0]; // Take only date part
+                grouped[d] = (grouped[d] || 0) + 1;
+            });
+
+            // Sort dates
+            const labels = Object.keys(grouped).sort((a, b) => new Date(a) - new Date(b)).slice(-14); // Last 14 entries
+            const dataPts = labels.map(l => grouped[l]);
+
+            charts.timeline = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Nuevos Leads',
+                        data: dataPts,
+                        borderColor: '#6366f1',
+                        backgroundColor: 'rgba(99, 102, 241, 0.1)',
+                        fill: true,
+                        tension: 0.4,
+                        pointRadius: 4,
+                        pointHoverRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: { color: '#334155' },
+                            ticks: { stepSize: 1, precision: 0 } // Integers only
+                        },
+                        x: { grid: { display: false } }
+                    }
+                }
+            });
+        }
+
+        function renderOriginChart() {
+            const ctx = document.getElementById('chart-origin').getContext('2d');
+            if (charts.origin) charts.origin.destroy();
+
+            const cities = { 'Lima': 0, 'Huancayo': 0, 'Tingo María': 0, 'Otros': 0 };
+            state.contactos.forEach(c => {
+                let city = c.Ciudad_contacto ? c.Ciudad_contacto.trim() : 'Otros';
+                if (cities.hasOwnProperty(city)) cities[city]++;
+                else cities['Otros']++;
+            });
+
+            charts.origin = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: Object.keys(cities),
+                    datasets: [{
+                        data: Object.values(cities),
+                        backgroundColor: ['#f43f5e', '#8b5cf6', '#10b981', '#64748b'],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: 'right', labels: { color: '#cbd5e1' } } },
+                    cutout: '70%'
+                }
+            });
+        }
+
+        function renderPackagesChart() {
+            const ctx = document.getElementById('chart-packages').getContext('2d');
+            if (charts.pkg) charts.pkg.destroy();
+
+            const counts = {};
+            state.contactos.forEach(c => {
+                let t = c.Tour_interes || 'Indefinido';
+                counts[t] = (counts[t] || 0) + 1;
+            });
+
+            const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 5);
+
+            charts.pkg = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: sorted.map(i => i[0].length > 15 ? i[0].substring(0, 15) + '...' : i[0]),
+                    datasets: [{
+                        label: 'Ventas',
+                        data: sorted.map(i => i[1]),
+                        backgroundColor: '#fbbf24',
+                        borderRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: { color: '#334155' },
+                            ticks: { stepSize: 1, precision: 0 } // Integers only
+                        },
+                        x: { grid: { display: false }, ticks: { color: '#94a3b8', font: { size: 10 } } }
+                    }
+                }
+            });
+        }
+
+        function renderTablePreview() {
+            const tbody = document.getElementById('table-preview-body');
+            tbody.innerHTML = '';
+            // Show last 5
+            const last5 = [...state.contactos].reverse().slice(0, 5);
+            last5.forEach(c => {
+                tbody.innerHTML += `
+                    <tr class="hover:bg-slate-800/50 transition">
+                        <td class="py-3 pl-2 max-w-[120px] truncate font-medium text-white">${c.Nombre}</td>
+                        <td class="py-3 text-center text-[10px] text-slate-400 font-mono">${c.Fecha_registro ? c.Fecha_registro.split(' ')[0] : '-'}</td>
+                        <td class="py-3 text-right text-emerald-400 font-bold text-xs">${c.Monto_cotizado ? 'S/' + c.Monto_cotizado : '-'}</td>
+                    </tr>
+                `;
+            });
+        }
+
+
+
+
+        // --- MULTI-SELECT TOURS LOGIC ---
+        let currentTours = [];
+
+        function renderTours() {
+            const list = document.getElementById('tour-tags-list');
+            list.innerHTML = '';
+            currentTours.forEach((tour, index) => {
+                const tag = document.createElement('div');
+                tag.className = 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 rounded-md px-2 py-1 text-xs font-bold flex items-center gap-1';
+                tag.innerHTML = `
+                    <span>${tour}</span>
+                    <button onclick="removeTour(${index})" class="hover:text-white transition focus:outline-none">
+                        <i class="fas fa-times"></i>
+                    </button>
+                `;
+                list.appendChild(tag);
+            });
+        }
+
+        function addTour(tourName) {
+            const t = tourName.trim();
+            if (t && !currentTours.includes(t)) {
+                currentTours.push(t);
+                renderTours();
+                document.getElementById('tour-input').value = '';
+                document.getElementById('tour-dropdown-list').classList.add('hidden');
+            }
+        }
+
+        function removeTour(index) {
+            currentTours.splice(index, 1);
+            renderTours();
+        }
+
+        // --- MULTI-SELECT TOURS LOGIC (FORM) ---
+        let formTours = [];
+
+        function renderFormTours() {
+            const list = document.getElementById('form-tags-list');
+            list.innerHTML = '';
+            formTours.forEach((tour, index) => {
+                const tag = document.createElement('div');
+                tag.className = 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 rounded-md px-2 py-1 text-xs font-bold flex items-center gap-1';
+                tag.innerHTML = `
+                    <span>${tour}</span>
+                    <button type="button" onclick="removeFormTour(${index})" class="hover:text-white transition focus:outline-none">
+                        <i class="fas fa-times"></i>
+                    </button>
+                `;
+                list.appendChild(tag);
+            });
+        }
+
+        function addFormTour(tourName) {
+            const t = tourName.trim();
+            if (t && !formTours.includes(t)) {
+                formTours.push(t);
+                renderFormTours();
+                document.getElementById('form-tour-input').value = '';
+                document.getElementById('form-tour-dropdown').classList.add('hidden');
+            }
+        }
+
+        function removeFormTour(index) {
+            formTours.splice(index, 1);
+            renderFormTours();
+        }
+
+        // Setup Tour Input Event Listeners
+        function setupTourInput() {
+            // MODAL INPUT
+            const input = document.getElementById('tour-input');
+            const dropdown = document.getElementById('tour-dropdown-list');
+
+            input.addEventListener('focus', () => {
+                if (!input.disabled) {
+                    renderDropdown(input.value, dropdown, false);
+                    dropdown.classList.remove('hidden');
+                }
+            });
+
+            input.addEventListener('input', (e) => {
+                renderDropdown(e.target.value, dropdown, false);
+                dropdown.classList.remove('hidden');
+            });
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    addTour(input.value);
+                }
+            });
+
+            // FORM INPUT (Always enabled)
+            const formInput = document.getElementById('form-tour-input');
+            const formDropdown = document.getElementById('form-tour-dropdown');
+
+            formInput.addEventListener('focus', () => {
+                renderDropdown(formInput.value, formDropdown, true);
+                formDropdown.classList.remove('hidden');
+            });
+
+            formInput.addEventListener('input', (e) => {
+                renderDropdown(e.target.value, formDropdown, true);
+                formDropdown.classList.remove('hidden');
+            });
+            formInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    addFormTour(formInput.value);
+                }
+            });
+
+
+            // Close dropdown when clicking outside
+            document.addEventListener('click', (e) => {
+                if (!input.contains(e.target) && !dropdown.contains(e.target)) {
+                    dropdown.classList.add('hidden');
+                }
+                if (!formInput.contains(e.target) && !formDropdown.contains(e.target)) {
+                    formDropdown.classList.add('hidden');
+                }
+            });
+        }
+
+        function renderDropdown(filterText = '', dropdownEl, isForm) {
+            dropdownEl.innerHTML = '';
+
+            const uniqueTours = new Set();
+            state.paquetes.forEach(p => { if (p.tour) uniqueTours.add(p.tour); });
+
+            const filtered = Array.from(uniqueTours).filter(t =>
+                t.toLowerCase().includes(filterText.toLowerCase())
+            );
+
+            if (filtered.length === 0 && filterText.trim() !== '') {
+                dropdownEl.innerHTML = `<div class="px-4 py-2 text-xs text-slate-400 italic">Presiona Enter para agregar "${filterText}"</div>`;
+            }
+
+            filtered.forEach(tour => {
+                const opt = document.createElement('div');
+                opt.className = 'px-4 py-2 text-sm text-slate-300 hover:bg-slate-700 cursor-pointer transition';
+                opt.innerText = tour;
+                opt.onclick = () => {
+                    if (isForm) addFormTour(tour);
+                    else addTour(tour);
+                    dropdownEl.classList.add('hidden');
+                };
+                dropdownEl.appendChild(opt);
+            });
+        }
+
+        // --- MODAL LOGIC ---
+        function openContactModal(id) {
+            const c = state.contactos.find(x => x.ID === id);
+            if (!c) return;
+
+            // Reset Edit Mode
+            disableEditMode();
+
+            // Populate Fields (Inputs)
+            document.getElementById('modal-id').innerText = c.ID;
+            document.getElementById('modal-nombre').value = c.Nombre || '';
+
+            const rawWsp = (c.Numero_whatsapp || '').replace("'", "");
+            document.getElementById('modal-whatsapp').value = rawWsp;
+            document.getElementById('modal-btn-wsp').href = `https://wa.me/${rawWsp.replace('+', '')}`;
+
+            // City Select
+            document.getElementById('modal-ciudad').value = c.Ciudad_contacto || 'Otro'; // Default to Otro if not found
+
+            // Tour Multi-Select Populating
+            currentTours = [];
+            if (c.Tour_interes && typeof c.Tour_interes === 'string') {
+                // Split by comma, trim whitespace, filter empty
+                c.Tour_interes.split(',').forEach(t => {
+                    const trimmed = t.trim();
+                    if (trimmed) currentTours.push(trimmed);
+                });
+            } else if (c.Tour_interes) {
+                // Fallback for non-string values (e.g. number from CSV sometimes)
+                currentTours.push(String(c.Tour_interes));
+            }
+            renderTours();
+
+            // Status Select
+            let st = (c.Estado_contacto || 'Lead');
+            // Compatibility Mapping
+            const map = {
+                'nuevo': 'Lead',
+                'contactado': 'Lead',
+                'cotizacion': 'Info_enviada',
+                'interesado': 'Info_enviada',
+                'reserva': 'Reserva_Turista',
+                'reserva confirmada': 'Reserva_Turista',
+                'turista': 'Reserva_Turista',
+                'confirmada': 'Reserva_Turista'
+            };
+            if (map[st.toLowerCase()]) st = map[st.toLowerCase()];
+
+            const statusSel = document.getElementById('modal-estado');
+            // Fallback if value doesn't exist in options (e.g. unknown status)
+            statusSel.value = st;
+            if (!statusSel.value) statusSel.value = 'Lead';
+
+            document.getElementById('modal-personas').value = c.Numero_personas || '';
+            document.getElementById('modal-dni').value = c.DNI || '';
+            document.getElementById('modal-embarque').value = c.Punto_embarque || '';
+            document.getElementById('modal-monto').value = parseFloat(c.Monto_cotizado) || 0;
+            document.getElementById('modal-fecha-contacto').innerText = c.Fecha_ultimo_contacto ? c.Fecha_ultimo_contacto.replace('T', ' ').split('.')[0] : '-';
+
+            document.getElementById('modal-notas').value = c.Notas || '';
+
+            document.getElementById('modal-origen').innerText = `Origen: ${c.Origen || 'Desconocido'}`;
+            document.getElementById('modal-registro').innerText = `Registrado: ${c.Fecha_registro ? c.Fecha_registro.replace('T', ' ').split('.')[0] : '-'}`;
+
+            // Show Modal
+            const modal = document.getElementById('contact-modal');
+            const backdrop = document.getElementById('modal-backdrop');
+            const panel = document.getElementById('modal-panel');
+
+            modal.classList.remove('hidden');
+            requestAnimationFrame(() => {
+                backdrop.classList.remove('opacity-0');
+                panel.classList.remove('opacity-0', 'translate-y-4', 'scale-95');
+            });
+        }
+
+        function closeContactModal() {
+            const modal = document.getElementById('contact-modal');
+            const backdrop = document.getElementById('modal-backdrop');
+            const panel = document.getElementById('modal-panel');
+
+            backdrop.classList.add('opacity-0');
+            panel.classList.add('opacity-0', 'translate-y-4', 'scale-95');
+
+            setTimeout(() => {
+                modal.classList.add('hidden');
+            }, 300);
+        }
+
+        // --- EDIT MODE LOGIC ---
+        function enableEditMode() {
+            document.getElementById('modal-btns-view').classList.add('hidden');
+            document.getElementById('modal-btns-edit').classList.remove('hidden');
+
+            const inputs = ['modal-nombre', 'modal-whatsapp', 'modal-ciudad', 'tour-input', 'modal-estado', 'modal-personas', 'modal-dni', 'modal-embarque', 'modal-monto', 'modal-notas'];
+            inputs.forEach(id => {
+                const el = document.getElementById(id);
+                el.disabled = false;
+                if (el.tagName === 'INPUT') el.classList.remove('border-none', 'bg-transparent');
+                // Optional: Add styling classes for active state
+                el.classList.add('bg-slate-800', 'border', 'border-slate-600');
+            });
+        }
+
+        function disableEditMode() {
+            document.getElementById('modal-btns-view').classList.remove('hidden');
+            document.getElementById('modal-btns-edit').classList.add('hidden');
+
+            const inputs = ['modal-nombre', 'modal-whatsapp', 'modal-ciudad', 'tour-input', 'modal-estado', 'modal-dni', 'modal-embarque', 'modal-monto', 'modal-notas'];
+            inputs.forEach(id => {
+                const el = document.getElementById(id);
+                el.disabled = true;
+                if (el.tagName === 'INPUT') el.classList.add('border-none', 'bg-transparent');
+                el.classList.remove('bg-slate-800', 'border', 'border-slate-600');
+            });
+        }
+
+        async function saveContactChanges() {
+            const idAttr = document.getElementById('modal-id').innerText;
+            const id = idAttr ? idAttr.trim() : '';
+
+            // Validar ID
+            if (!id) {
+                showToast('Error: No se encuentra el ID del contacto', 'warning');
+                return;
+            }
+
+            const contact = state.contactos.find(x => x.ID === id);
+            if (!contact) {
+                showToast('Error: Contacto no encontrado en memoria', 'error');
+                return;
+            }
+
+            // Collect Data
+            const updated = {
+                ...contact,
+                Nombre: document.getElementById('modal-nombre').value,
+                Numero_whatsapp: document.getElementById('modal-whatsapp').value,
+                Ciudad_contacto: document.getElementById('modal-ciudad').value,
+                Tour_interes: currentTours.join(', '),
+                Estado_contacto: document.getElementById('modal-estado').value,
+                DNI: document.getElementById('modal-dni').value,
+                Numero_personas: document.getElementById('modal-personas').value,
+                Punto_embarque: document.getElementById('modal-embarque').value,
+                Monto_cotizado: document.getElementById('modal-monto').value,
+                Notas: document.getElementById('modal-notas').value,
+                Fecha_ultimo_contacto: new Date().toLocaleString('sv-SE', { timeZone: 'America/Lima' }).replace(' ', 'T')
+            };
+
+            // 1. Update Local State
+            const idx = state.contactos.findIndex(x => x.ID === id);
+            state.contactos[idx] = updated;
+
+            try {
+                // 2. Update UI
+                disableEditMode();
+                closeContactModal();
+                updateDashboard();
+            } catch (uiError) {
+                console.error("UI Update Error", uiError);
+                showToast('Error visual (datos guardados)', 'warning');
+            }
+
+            // 3. Send to Webhook (Fire and forget from user perspective)
+            const btn = document.querySelector('#modal-btns-edit button:last-child');
+            const originalText = btn ? btn.innerHTML : 'Guardar';
+            if (btn) btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...';
+
+            try {
+                const payload = {
+                    ID: updated.ID,
+                    Nombre: updated.Nombre,
+                    Numero_whatsapp: "'" + updated.Numero_whatsapp, // Force text in Sheets (Fix for + becoming formula)
+                    Ciudad_contacto: updated.Ciudad_contacto,
+                    Tour_interes: updated.Tour_interes,
+                    Estado_contacto: updated.Estado_contacto,
+                    DNI: updated.DNI,
+                    Numero_personas: updated.Numero_personas,
+                    Punto_embarque: updated.Punto_embarque,
+                    Monto_cotizado: updated.Monto_cotizado,
+                    Notas: updated.Notas,
+                    Fecha_registro: updated.Fecha_registro, // <--- Added this to preserve it
+                    Fecha_ultimo_contacto: updated.Fecha_ultimo_contacto,
+                    Origen: updated.Origen,
+                    Fecha_registro: updated.Fecha_registro,
+                    Fecha_ultimo_contacto: updated.Fecha_ultimo_contacto,
+                    Origen: updated.Origen,
+                    Action: "UPDATE"
+                };
+
+                // Send to n8n (CORS enabled on server now)
+                const response = await fetch(WEBHOOK_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (response.ok) {
+                    showToast('Cambios guardados exitosamente', 'success');
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 1500);
+                } else {
+                    showToast('Error al guardar', 'error');
+                }
+
+            } catch (e) {
+                console.error(e);
+                showToast('Cambios guardados localmente (Offline)', 'warning');
+            } finally {
+                if (btn) btn.innerHTML = originalText;
+            }
+        }
+
+        // --- STATE ---
+
+
+        // ... (Charts instance, initUI, etc remain same)
+
+        // --- FILTER & PAGINATION ---
+        function applyFilters() {
+            const search = document.getElementById('table-search').value.toLowerCase();
+            const fStatus = document.getElementById('filter-status').value.toLowerCase();
+            const fCity = document.getElementById('filter-city').value.toLowerCase();
+
+            // Filter Logic
+            state.filteredContactos = state.contactos.filter(c => {
+                // 1. Text Search (Name, Wsp, Notes, ID)
+                const textMatch = [c.Nombre, c.Numero_whatsapp, c.Notas, c.ID]
+                    .join(' ').toLowerCase().includes(search);
+                // 2. Status Match
+                const statusMatch = !fStatus || (c.Estado_contacto || '').toLowerCase().includes(fStatus);
+                // 3. City Match
+                const cityMatch = !fCity || (c.Ciudad_contacto || '').toLowerCase() === fCity;
+
+                return textMatch && statusMatch && cityMatch;
+            });
+
+            // Reset to Page 1 on filter change
+            state.currentPage = 1;
+            renderTablePage();
+        }
+
+        function changePage(delta) {
+            const maxPage = Math.ceil(state.filteredContactos.length / state.rowsPerPage);
+            const newPage = state.currentPage + delta;
+
+            if (newPage >= 1 && newPage <= maxPage) {
+                state.currentPage = newPage;
+                renderTablePage();
+            }
+        }
+
+        function goToPage(target) {
+            const maxPage = Math.ceil(state.filteredContactos.length / state.rowsPerPage);
+            if (target === 'last') {
+                state.currentPage = maxPage;
+            } else {
+                state.currentPage = 1;
+            }
+            renderTablePage();
+        }
+
+        function renderTablePage() {
+            const tbody = document.getElementById('full-table-body');
+            tbody.innerHTML = '';
+
+            const total = state.filteredContactos.length;
+
+            if (total === 0) {
+                tbody.innerHTML = `<tr><td colspan="7" class="p-8 text-center text-slate-500">No se encontraron resultados</td></tr>`;
+                document.getElementById('page-info-start').innerText = 0;
+                document.getElementById('page-info-end').innerText = 0;
+                document.getElementById('page-info-total').innerText = 0;
+                document.getElementById('btn-prev').disabled = true;
+                document.getElementById('btn-next').disabled = true;
+                return;
+            }
+
+            // Slice Data
+            const start = (state.currentPage - 1) * state.rowsPerPage;
+            const end = Math.min(start + state.rowsPerPage, total);
+            const pageData = state.filteredContactos.slice(start, end);
+
+            // Render Rows
+            pageData.forEach(c => {
+                let statusColor = 'bg-slate-700 text-slate-300';
+                const st = (c.Estado_contacto || '').toLowerCase();
+
+                if (st.includes('reserva_turista')) statusColor = 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/20'; // Green
+                else if (st.includes('info_enviada')) statusColor = 'bg-amber-500/20 text-amber-400 border border-amber-500/20'; // Orange
+                else if (st.includes('lead')) statusColor = 'bg-purple-500/20 text-purple-400 border border-purple-500/20'; // Purple
+                else if (st.includes('cancelado')) statusColor = 'bg-rose-500/20 text-rose-400 border border-rose-500/20'; // Red
+
+                const id = c.ID || '-';
+                const name = c.Nombre || 'Sin Nombre';
+                const wsp = c.Numero_whatsapp ? c.Numero_whatsapp.replace("'", "") : '-';
+                const city = c.Ciudad_contacto || '-';
+                const tour = c.Tour_interes || '-';
+                const personas = c.Numero_personas || '-';
+                const status = c.Estado_contacto || 'Nuevo';
+                const amount = c.Monto_cotizado ? `S/ ${parseFloat(c.Monto_cotizado).toFixed(2)}` : '-';
+
+                // Responsive Card (Mobile) / Table Row (Desktop)
+                tbody.innerHTML += `
+                    <tr class="block md:table-row mb-4 md:mb-0 bg-slate-900/80 md:bg-transparent rounded-xl md:rounded-none border border-slate-800 md:border-b md:border-x-0 group cursor-pointer hover:bg-slate-800 transition" onclick="openContactModal('${id}')">
+                        
+                        <!-- ID -->
+                        <td class="block md:table-cell p-3 md:p-4 text-slate-500 font-mono text-xs border-b border-slate-800/50 md:border-none flex justify-between items-center bg-slate-950/30 md:bg-transparent rounded-t-xl md:rounded-none">
+                            <span class="md:hidden font-bold uppercase tracking-wider text-[10px] text-slate-600">ID</span>
+                            <span>${id}</span>
+                        </td>
+
+                        <!-- Nombre: Main Info on Mobile -->
+                        <td class="block md:table-cell p-3 md:p-4 text-white font-bold border-b border-slate-800/50 md:border-none flex justify-between items-center">
+                            <span class="md:hidden font-bold uppercase tracking-wider text-[10px] text-slate-600">Nombre</span>
+                            <span class="text-lg md:text-sm text-indigo-400 md:text-white">${name}</span>
+                        </td>
+
+                        <!-- WhatsApp -->
+                        <td class="block md:table-cell p-3 md:p-4 text-slate-400 font-mono text-xs border-b border-slate-800/50 md:border-none flex justify-between items-center">
+                            <span class="md:hidden font-bold uppercase tracking-wider text-[10px] text-slate-600">WhatsApp</span>
+                            <span>${wsp}</span>
+                        </td>
+
+                        <!-- Ciudad -->
+                        <td class="block md:table-cell p-3 md:p-4 text-slate-300 text-xs uppercase border-b border-slate-800/50 md:border-none flex justify-between items-center">
+                            <span class="md:hidden font-bold uppercase tracking-wider text-[10px] text-slate-600">Ciudad</span>
+                            <span>${city}</span>
+                        </td>
+
+                        <!-- Tour -->
+                        <td class="block md:table-cell p-3 md:p-4 text-slate-400 text-xs truncate max-w-[150px] border-b border-slate-800/50 md:border-none flex justify-between items-center">
+                            <span class="md:hidden font-bold uppercase tracking-wider text-[10px] text-slate-600">Tour</span>
+                            <span>${tour}</span>
+                        </td>
+
+                        <!-- Estado -->
+                        <td class="block md:table-cell p-3 md:p-4 text-center border-b border-slate-800/50 md:border-none flex justify-between items-center">
+                            <span class="md:hidden font-bold uppercase tracking-wider text-[10px] text-slate-600">Estado</span>
+                            <span class="inline-flex items-center px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider ${statusColor}">
+                                ${status}
+                            </span>
+                        </td>
+
+                        <!-- Monto -->
+                        <td class="block md:table-cell p-3 md:p-4 text-right font-bold text-emerald-500 border-none md:border-none flex justify-between items-center rounded-b-xl md:rounded-none">
+                            <span class="md:hidden font-bold uppercase tracking-wider text-[10px] text-slate-600">Cotización</span>
+                            <span>${amount}</span>
+                        </td>
+                    </tr>
+                `;
+            });
+
+            // Update Controls
+            document.getElementById('page-info-start').innerText = start + 1;
+            document.getElementById('page-info-end').innerText = end;
+            document.getElementById('page-info-total').innerText = total;
+
+            const maxPage = Math.ceil(total / state.rowsPerPage);
+            document.getElementById('btn-prev').disabled = state.currentPage === 1;
+            document.getElementById('btn-next').disabled = state.currentPage === maxPage;
+
+            // New Buttons Logic
+            document.getElementById('btn-first').disabled = state.currentPage === 1;
+            document.getElementById('btn-last').disabled = state.currentPage === maxPage;
+        }
+
+        // --- FORM SUBMISSION ---
+        async function submitForm(e) {
+            e.preventDefault();
+            const form = e.target; // Get form element properly
+            const loading = document.getElementById('form-loading');
+
+            // Collect Data
+            // Collect Data
+            const formData = new FormData(form);
+
+            // Format Name: Title Case
+            let rawName = (formData.get('nombre') || '').trim();
+            const nombre = rawName.toLowerCase().replace(/\b\w/g, s => s.toUpperCase());
+
+            // Format WhatsApp: Remove spaces, Ensure '+' prefix
+            let rawWsp = (formData.get('whatsapp') || '').replace(/\s+/g, '');
+            let whatsapp = rawWsp;
+            if (whatsapp && !whatsapp.startsWith('+')) {
+                whatsapp = '+' + whatsapp;
+            }
+
+            // Validate Amount: Non-negative
+            let monto = parseFloat(formData.get('monto')) || 0;
+            const montoStr = monto.toFixed(2);
+
+            // 1. Validation: Check Duplicates (Compare stripped numbers)
+            // We strip non-digits to compare safely against potential variations in Sheet
+            const cleanNewWsp = whatsapp.replace(/\D/g, '');
+            const duplicate = state.contactos.find(c => {
+                const cleanExisting = (c.Numero_whatsapp || '').replace(/\D/g, '');
+                return cleanExisting === cleanNewWsp && cleanExisting.length > 5; // Ensure not empty/short matches
+            });
+
+            if (duplicate) {
+                showToast(`El número ${whatsapp} ya está registrado`, 'error');
+                return;
+            }
+
+            // 2. Logic: Auto-ID
+            let newId = 'C-000001';
+            if (state.contactos.length > 0) {
+                const ids = state.contactos.map(c => c.ID).filter(id => id && id.startsWith('C-'));
+                if (ids.length > 0) {
+                    const maxNum = Math.max(...ids.map(id => parseInt(id.split('-')[1]) || 0));
+                    newId = `C-${(maxNum + 1).toString().padStart(6, '0')}`;
+                }
+            }
+
+            // Date in Peru Timezone (Format: YYYY-MM-DD HH:mm:ss)
+            const now = new Date().toLocaleString('sv-SE', {
+                timeZone: 'America/Lima',
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+            }).replace(' ', 'T'); // Results in "2026-01-07T17:00:00" (Local Peru Time)
+
+            // Ensure we use the 'whatsapp' variable which surely has '+'
+            const jsonData = {
+                ID: newId,
+                Nombre: nombre,
+                Numero_whatsapp: "'" + whatsapp, // Force text in Sheets
+                DNI: (formData.get('dni') || '').trim(),
+                Ciudad_contacto: formData.get('ciudad'),
+                Tour_interes: formTours.join(', '),
+                Estado_contacto: formData.get('estado'),
+                Punto_embarque: (formData.get('punto_embarque') || '').trim(),
+                Fecha_registro: now,
+                Fecha_ultimo_contacto: now,
+                Numero_personas: (formData.get('numero_personas') || '').trim(),
+                Monto_cotizado: montoStr,
+                Notas: (formData.get('notas') || '').trim(),
+                Origen: 'web_dashboard',
+                Action: 'CREATE'
+            };
+
+            // Basic Validation
+            if (!jsonData.Nombre || !jsonData.Numero_whatsapp) return showToast("Faltan datos requeridos", "error");
+
+            loading.classList.remove('hidden');
+
+            try {
+                // Post to Webhook
+                const res = await fetch(WEBHOOK_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(jsonData)
+                });
+
+                if (res.ok) {
+                    showToast("✅ Contacto enviado al CRM");
+                    form.reset();
+
+                    // Optimistic UI Update (Add to local state immediately)
+                    state.contactos.push({
+                        ID: jsonData.ID,
+                        Nombre: jsonData.Nombre,
+                        Numero_whatsapp: jsonData.Numero_whatsapp.replace("'", ""), // Remove quote for UI display
+                        Ciudad_contacto: jsonData.Ciudad_contacto,
+                        Tour_interes: jsonData.Tour_interes,
+                        Fecha_registro: jsonData.Fecha_registro.replace('T', ' ').split('.')[0], // Format approx
+                        Monto_cotizado: jsonData.Monto_cotizado
+                    });
+
+                    // Reset Form Extras
+                    formTours = [];
+                    renderFormTours();
+
+                    updateDashboard();
+
+                } else {
+                    throw new Error("Webhook Error");
+                }
+            } catch (err) {
+                console.error(err);
+                showToast("⚠️ Hubo un error al enviar (Posible CORS/Network)", "error");
+            } finally {
+                loading.classList.add('hidden');
+            }
+        }
+
+        // --- EXPORT LOGIC ---
+        function openExportModal() {
+            const modal = document.getElementById('export-modal');
+            modal.classList.remove('hidden');
+            requestAnimationFrame(() => {
+                document.getElementById('export-backdrop').classList.remove('opacity-0');
+                document.getElementById('export-panel').classList.remove('opacity-0', 'scale-95', 'translate-y-4');
+            });
+        }
+
+        function closeExportModal() {
+            const backdrop = document.getElementById('export-backdrop');
+            const panel = document.getElementById('export-panel');
+            backdrop.classList.add('opacity-0');
+            panel.classList.add('opacity-0', 'scale-95', 'translate-y-4');
+            setTimeout(() => document.getElementById('export-modal').classList.add('hidden'), 300);
+        }
+
+        function downloadExport(type) {
+            let data = [...state.contactos]; // Copy array
+            let filename = 'contactos_todo.csv';
+
+            if (type === 'month') {
+                const val = document.getElementById('export-month').value; // YYYY-MM
+                if (!val) { showToast('Selecciona un mes', 'warning'); return; }
+                data = data.filter(c => c.Fecha_registro && c.Fecha_registro.startsWith(val));
+                filename = `contactos_mes_${val}.csv`;
+            } else if (type === 'day') {
+                const val = document.getElementById('export-day').value; // YYYY-MM-DD
+                if (!val) { showToast('Selecciona un día', 'warning'); return; }
+                data = data.filter(c => c.Fecha_registro && c.Fecha_registro.startsWith(val));
+                filename = `contactos_dia_${val}.csv`;
+            }
+
+            if (data.length === 0) { showToast('No hay datos para esa fecha', 'warning'); return; }
+
+            // Unparse
+            const csv = Papa.unparse(data);
+            // Add BOM (\uFEFF) so Excel recognizes it as UTF-8
+            const blob = new Blob(["\ufeff" + csv], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement("a");
+            const url = URL.createObjectURL(blob);
+            link.setAttribute("href", url);
+            link.setAttribute("download", filename);
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+
+            showToast(`Descargados ${data.length} registros`, 'success');
+            closeExportModal();
+        }
+
+        // --- NAVIGATION & UTILS ---
+        function switchView(viewName) {
+            const views = ['overview', 'leads', 'form'];
+            views.forEach(v => {
+                document.getElementById('view-' + v).classList.add('hidden');
+                document.getElementById('nav-' + v).classList.remove('active', 'bg-indigo-500/10', 'text-indigo-400', 'border-indigo-500', 'border-r-3');
+                // Reset basic style
+                document.getElementById('nav-' + v).classList.add('text-slate-400');
+            });
+
+            const activeNav = document.getElementById('nav-' + viewName);
+            activeNav.classList.add('active', 'text-indigo-400');
+            activeNav.classList.remove('text-slate-400');
+
+            document.getElementById('view-' + viewName).classList.remove('hidden');
+            document.getElementById('page-title').innerText = viewName === 'overview' ? 'Dashboard' : (viewName === 'form' ? 'Nuevo Contacto' : 'Base de Datos');
+        }
+
+        function showToast(msg, type = 'success') {
+            const container = document.getElementById('toast-container');
+            const el = document.createElement('div');
+            const color = type === 'success' ? 'bg-emerald-500' : 'bg-rose-500';
+            el.className = `${color} text-white px-6 py-3 rounded-xl shadow-2xl font-bold text-sm flex items-center gap-3 transform translate-y-10 opacity-0 transition-all duration-300 pointer-events-auto`;
+            el.innerHTML = `<i class="fas ${type === 'success' ? 'fa-check' : 'fa-exclamation-triangle'}"></i> <span>${msg}</span>`;
+
+            container.appendChild(el);
+
+            // Animation In
+            requestAnimationFrame(() => { el.classList.remove('translate-y-10', 'opacity-0'); });
+
+            // Remove after 3s
+            setTimeout(() => {
+                el.classList.add('translate-y-10', 'opacity-0');
+                setTimeout(() => el.remove(), 300);
+            }, 3000);
+        }
+    </script>
+</body>
+
+</html>
