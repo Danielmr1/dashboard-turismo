@@ -987,11 +987,11 @@
             const ctx = document.getElementById('chart-forecast').getContext('2d');
             if (charts.forecast) charts.forecast.destroy();
 
-            // 1. Generate 7-Day Window (Yesterday -> Today+5)
+            // 1. Generate 7-Day Window
             const dates = [];
             const labels = [];
             const start = new Date();
-            start.setDate(start.getDate() - 1); // Start from Yesterday
+            start.setDate(start.getDate() - 1);
 
             for (let i = 0; i < 7; i++) {
                 const d = new Date(start);
@@ -1000,65 +1000,68 @@
                 labels.push(d.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric' }));
             }
 
-            // 2. Aggregate Data (Stacked by City)
-            const citiesSet = new Set();
-            state.contactos.forEach(c => { if (c.Ciudad_contacto) citiesSet.add(c.Ciudad_contacto); });
-            const cities = Array.from(citiesSet);
-            if (cities.length === 0) cities.push('Desconocido');
+            // 2. Prepare Colors by City (Fixed Palette)
+            const cityColors = {};
+            const baseColors = [
+                { bg: 'hsla(340, 82%, 56%, 0.8)', border: 'hsla(340, 82%, 46%, 1)' }, // Rose
+                { bg: 'hsla(260, 60%, 56%, 0.8)', border: 'hsla(260, 60%, 46%, 1)' }, // Violet
+                { bg: 'hsla(160, 84%, 39%, 0.8)', border: 'hsla(160, 84%, 29%, 1)' }, // Emerald
+                { bg: 'hsla(37, 90%, 51%, 0.8)', border: 'hsla(37, 90%, 41%, 1)' },  // Amber
+                { bg: 'hsla(200, 90%, 51%, 0.8)', border: 'hsla(200, 90%, 41%, 1)' }, // Sky
+                { bg: 'hsla(280, 50%, 50%, 0.8)', border: 'hsla(280, 50%, 40%, 1)' }, // Purple
+                { bg: 'hsla(20, 80%, 50%, 0.8)', border: 'hsla(20, 80%, 40%, 1)' }   // Orange
+            ];
 
-            // Initialize datasets map: { 'Lima': [0,0...], 'Cusco': [0,0...] }
-            const datasetsMap = {};
-            cities.forEach(city => datasetsMap[city] = new Array(7).fill(0));
+            const chartDatasets = [];
+            let colorIdx = 0;
 
-            // 3. Populate Data
+            // 3. Create One Dataset Per Active Contact
             state.contactos.forEach(c => {
-                // Ignore Cancelled
+                // Ignore if Cancelled, or invalid dates
                 if (c.Estado_contacto === 'Cancelado') return;
-
-                // Parse Tour Data
                 if (!c.Fecha_inicio_tour || !c.Duracion_dias_tour) return;
 
-                const startTour = new Date(c.Fecha_inicio_tour + 'T00:00:00'); // Assuming YYYY-MM-DD
-                const duration = parseInt(c.Duracion_dias_tour) || 1;
-                const endTour = new Date(startTour);
-                endTour.setDate(startTour.getDate() + duration); // Exclusive End Date
-
-                const personas = parseInt(c.Numero_personas) || 1;
                 const city = c.Ciudad_contacto || 'Desconocido';
 
-                // Check overlap with our 7-day window
+                // Assign Color if new city
+                if (!cityColors[city]) {
+                    cityColors[city] = baseColors[colorIdx % baseColors.length];
+                    colorIdx++;
+                }
+
+                const data = new Array(7).fill(0);
+                const startTour = new Date(c.Fecha_inicio_tour + 'T00:00:00');
+                const duration = parseInt(c.Duracion_dias_tour) || 1;
+                const endTour = new Date(startTour);
+                endTour.setDate(startTour.getDate() + duration);
+                const personas = parseInt(c.Numero_personas) || 1;
+
+                let hasData = false;
+
+                // Check overlap
                 dates.forEach((windowDate, index) => {
-                    // Compare timestamps (ignoring hours if normalized, but here simple comparison works if safe)
-                    // Safe normalization
                     const wTime = new Date(windowDate.getFullYear(), windowDate.getMonth(), windowDate.getDate()).getTime();
                     const sTime = new Date(startTour.getFullYear(), startTour.getMonth(), startTour.getDate()).getTime();
                     const eTime = new Date(endTour.getFullYear(), endTour.getMonth(), endTour.getDate()).getTime();
 
                     if (wTime >= sTime && wTime < eTime) {
-                        if (!datasetsMap[city]) datasetsMap[city] = new Array(7).fill(0); // Safety
-                        datasetsMap[city][index] += personas;
+                        data[index] = personas;
+                        hasData = true;
                     }
                 });
-            });
 
-            // 3.5 Filter out cities with 0 data across all days
-            const activeCities = cities.filter(city => {
-                const total = datasetsMap[city].reduce((a, b) => a + b, 0);
-                return total > 0;
-            });
-
-            // 4. Transform to Chart.js Datasets
-            const chartDatasets = activeCities.map((city, idx) => {
-                // Generate distinct colors
-                const hue = (idx * 360 / activeCities.length) % 360;
-                return {
-                    label: city,
-                    data: datasetsMap[city],
-                    backgroundColor: `hsla(${hue}, 70%, 60%, 0.8)`,
-                    borderColor: `hsla(${hue}, 70%, 50%, 1)`,
-                    borderWidth: 1,
-                    stack: 'Stack 0' // Enable Stacking
-                };
+                if (hasData) {
+                    chartDatasets.push({
+                        label: city, // Label is City for Legend
+                        realName: c.Nombre, // Custom prop for Tooltip
+                        contactID: c.ID,    // Custom prop for Click Filter
+                        data: data,
+                        backgroundColor: cityColors[city].bg,
+                        borderColor: cityColors[city].border,
+                        borderWidth: 1,
+                        stack: 'Stack 0'
+                    });
+                }
             });
 
             charts.forecast = new Chart(ctx, {
@@ -1071,8 +1074,32 @@
                     responsive: true,
                     maintainAspectRatio: false,
                     plugins: {
-                        legend: { position: 'top', labels: { color: '#cbd5e1' } },
-                        tooltip: { mode: 'index', intersect: false }
+                        // LEGEND FILTER: Deduplicate Cities
+                        legend: {
+                            position: 'top',
+                            labels: {
+                                color: '#cbd5e1',
+                                filter: function (item, chartData) {
+                                    // Only show if it's the first occurrence of this label
+                                    // chartData.datasets is the source array
+                                    const index = chartData.datasets.findIndex(d => d.label === item.text);
+                                    return index === item.datasetIndex;
+                                }
+                            }
+                        },
+                        tooltip: {
+                            mode: 'nearest', // Specific item focus
+                            intersect: true,
+                            callbacks: {
+                                label: function (context) {
+                                    // Custom Label: "City: Name (N pers)"
+                                    const raw = context.raw;
+                                    const name = context.dataset.realName || 'Turista';
+                                    const city = context.dataset.label;
+                                    return `${city}: ${name} (${raw})`;
+                                }
+                            }
+                        }
                     },
                     scales: {
                         y: {
@@ -1087,30 +1114,24 @@
                             ticks: { color: '#94a3b8' }
                         }
                     },
-                    // Interactivity: Click to filter table
+                    // Interactivity: Click to filter table by ID
                     onClick: (e, elements) => {
                         if (elements.length > 0) {
-                            const index = elements[0].index; // Date index
-                            const datasetIndex = elements[0].datasetIndex; // City index
+                            const datasetIndex = elements[0].datasetIndex;
+                            const targetID = chartDatasets[datasetIndex].contactID;
+                            const targetName = chartDatasets[datasetIndex].realName;
 
-                            const clickedDate = dates[index];
-                            const clickedCity = chartDatasets[datasetIndex].label;
-
-                            // Set Global Filter
-                            state.dateFilter = { date: clickedDate, city: clickedCity };
+                            // Set Global Filter: Specific ID
+                            state.dateFilter = { id: targetID, name: targetName }; // Changed format
                             applyFilters();
 
-                            // Visual Feedback
-                            showToast(`Filtrando: ${clickedCity} el ${clickedDate.toLocaleDateString()}`, 'info');
-
-                            // Scroll to table
+                            showToast(`Filtrando: ${targetName}`, 'info');
                             document.getElementById('table-preview-body').scrollIntoView({ behavior: 'smooth' });
                         } else {
-                            // Clear Filter if clicking background
                             if (state.dateFilter) {
                                 state.dateFilter = null;
                                 applyFilters();
-                                showToast('Filtro de fecha eliminado', 'info');
+                                showToast('Filtro eliminado', 'info');
                             }
                         }
                     }
@@ -1535,7 +1556,7 @@
                 return;
             }
 
-            const contact = state.contactos.find(x => x.ID === id);
+            const contact = state.contactos.find(x => String(x.ID) === String(id));
             if (!contact) {
                 showToast('Error: Contacto no encontrado en memoria', 'error');
                 return;
@@ -1656,37 +1677,20 @@
                 // 3. City Match
                 const cityMatch = !fCity || (c.Ciudad_contacto || '').toLowerCase() === fCity;
 
-                // 4. Date Filter (Active Tour Logic)
+                // 4. Date Filter (Active Tour Logic OR Specific ID)
                 let dateMatch = true;
                 if (dateFilter) {
-                    // Check if contact is Active on dateFilter.date AND matches dateFilter.city
-                    if (c.Estado_contacto === 'Cancelado') {
-                        dateMatch = false;
-                    } else if (!c.Fecha_inicio_tour || !c.Duracion_dias_tour) {
-                        dateMatch = false;
-                    } else {
-                        // Check City
-                        const cCity = c.Ciudad_contacto || 'Desconocido';
-                        if (cCity !== dateFilter.city) {
+                    if (dateFilter.id) {
+                        // Filter by SPECIFIC ID
+                        if (String(c.ID) !== String(dateFilter.id)) {
                             dateMatch = false;
-                        } else {
-                            // Check Date overlap
-                            const startTour = new Date(c.Fecha_inicio_tour + 'T00:00:00');
-                            const duration = parseInt(c.Duracion_dias_tour) || 1;
-                            const endTour = new Date(startTour);
-                            endTour.setDate(startTour.getDate() + duration);
-
-                            const filterTime = new Date(dateFilter.date.getFullYear(), dateFilter.date.getMonth(), dateFilter.date.getDate()).getTime();
-                            const sTime = new Date(startTour.getFullYear(), startTour.getMonth(), startTour.getDate()).getTime();
-                            const eTime = new Date(endTour.getFullYear(), endTour.getMonth(), endTour.getDate()).getTime();
-
-                            if (filterTime < sTime || filterTime >= eTime) {
-                                dateMatch = false;
-                            }
                         }
+                    } else if (dateFilter.date) {
+                        // Legacy Date Filter (Fallback)
+                        // ... (logic not needed if we always use ID)
+                        // Keeping logic simple: if ID provided, match ID.
                     }
                 }
-
                 return textMatch && statusMatch && cityMatch && dateMatch;
             });
 
