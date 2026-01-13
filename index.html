@@ -1408,14 +1408,20 @@
             };
 
             // 1. Update Local State
-            const idx = state.contactos.findIndex(x => x.ID === id);
-            state.contactos[idx] = updated;
+            const idx = state.contactos.findIndex(x => String(x.ID) === String(id));
+
+            if (idx !== -1) {
+                state.contactos[idx] = updated;
+            } else {
+                console.warn("Could not find contact in local state to update:", id);
+            }
 
             try {
                 // 2. Update UI
                 disableEditMode();
                 closeContactModal();
                 updateDashboard();
+                applyFilters(); // Explicitly re-apply filters to force table render
             } catch (uiError) {
                 console.error("UI Update Error", uiError);
                 showToast('Error visual (datos guardados)', 'warning');
