@@ -431,6 +431,21 @@
                                     </div>
                                 </div>
                             </div>
+                            <!-- Nuevo Bloque: Fechas y Dias -->
+                            <div class="space-y-2">
+                                <label
+                                    class="text-[10px] font-bold text-indigo-400 uppercase tracking-widest pl-1">Inicio
+                                    Tour</label>
+                                <input type="date" name="fecha_inicio_tour"
+                                    class="w-full bg-slate-950/50 border border-slate-700 rounded-xl p-3 text-sm focus:border-indigo-500 outline-none transition text-slate-300">
+                            </div>
+                            <div class="space-y-2">
+                                <label class="text-[10px] font-bold text-indigo-400 uppercase tracking-widest pl-1">Días
+                                    Tour</label>
+                                <input type="number" name="duracion_dias_tour" min="1"
+                                    class="w-full bg-slate-950/50 border border-slate-700 rounded-xl p-3 text-sm focus:border-indigo-500 outline-none transition"
+                                    placeholder="Ex: 3">
+                            </div>
                             <div class="space-y-2">
                                 <label class="text-[10px] font-bold text-indigo-400 uppercase tracking-widest pl-1">N°
                                     Personas</label>
@@ -446,7 +461,8 @@
                                     class="w-full bg-slate-950/50 border border-slate-700 rounded-xl p-3 text-sm focus:border-indigo-500 outline-none transition text-slate-300">
                                     <option value="Lead">Lead</option>
                                     <option value="Info_enviada">Info_enviada</option>
-                                    <option value="Reserva_Turista">Reserva_Turista</option>
+                                    <option value="Reserva">Reserva</option>
+                                    <option value="Turista">Turista</option>
                                     <option value="Cancelado">Cancelado</option>
                                 </select>
                             </div>
@@ -597,7 +613,8 @@
                                     class="w-full bg-transparent border-none text-xs font-medium text-slate-300 p-0 focus:ring-0 disabled:opacity-100 uppercase">
                                     <option value="Lead">Lead</option>
                                     <option value="Info_enviada">Info_enviada</option>
-                                    <option value="Reserva_Turista">Reserva_Turista</option>
+                                    <option value="Reserva">Reserva</option>
+                                    <option value="Turista">Turista</option>
                                     <option value="Cancelado">Cancelado</option>
                                 </select>
                             </div>
@@ -616,6 +633,21 @@
                                 <input type="text" id="modal-embarque" disabled
                                     class="w-full bg-transparent border-none text-slate-200 text-sm p-0 focus:ring-0 disabled:opacity-100"
                                     value="-">
+                            </div>
+                            <div>
+                                <label
+                                    class="text-[10px] uppercase tracking-wider text-slate-500 font-bold block mb-1">Inicio
+                                    Tour</label>
+                                <input type="date" id="modal-inicio-tour" disabled
+                                    class="w-full bg-transparent border-none text-slate-200 text-sm p-0 focus:ring-0 disabled:opacity-100 placeholder-slate-600">
+                            </div>
+                            <div>
+                                <label
+                                    class="text-[10px] uppercase tracking-wider text-slate-500 font-bold block mb-1">Días
+                                    Tour</label>
+                                <input type="number" id="modal-dias-tour" disabled
+                                    class="w-full bg-transparent border-none text-slate-200 text-sm p-0 focus:ring-0 disabled:opacity-100 placeholder-slate-600"
+                                    placeholder="-">
                             </div>
                             <div>
                                 <label
@@ -1262,10 +1294,11 @@
                 'contactado': 'Lead',
                 'cotizacion': 'Info_enviada',
                 'interesado': 'Info_enviada',
-                'reserva': 'Reserva_Turista',
-                'reserva confirmada': 'Reserva_Turista',
-                'turista': 'Reserva_Turista',
-                'confirmada': 'Reserva_Turista'
+                'reserva': 'Reserva',
+                'reserva confirmada': 'Reserva',
+                'turista': 'Turista',
+                'confirmada': 'Turista',
+                'reserva_turista': 'Reserva' // Fallback for old data
             };
             if (map[st.toLowerCase()]) st = map[st.toLowerCase()];
 
@@ -1275,6 +1308,8 @@
             if (!statusSel.value) statusSel.value = 'Lead';
 
             document.getElementById('modal-personas').value = c.Numero_personas || '';
+            document.getElementById('modal-inicio-tour').value = c.Fecha_inicio_tour ? c.Fecha_inicio_tour.split('T')[0] : '';
+            document.getElementById('modal-dias-tour').value = c.Duracion_dias_tour || '';
             document.getElementById('modal-dni').value = c.DNI || '';
             document.getElementById('modal-embarque').value = c.Punto_embarque || '';
             document.getElementById('modal-monto').value = parseFloat(c.Monto_cotizado) || 0;
@@ -1315,7 +1350,7 @@
             document.getElementById('modal-btns-view').classList.add('hidden');
             document.getElementById('modal-btns-edit').classList.remove('hidden');
 
-            const inputs = ['modal-nombre', 'modal-whatsapp', 'modal-ciudad', 'tour-input', 'modal-estado', 'modal-personas', 'modal-dni', 'modal-embarque', 'modal-monto', 'modal-notas'];
+            const inputs = ['modal-nombre', 'modal-whatsapp', 'modal-ciudad', 'tour-input', 'modal-estado', 'modal-personas', 'modal-inicio-tour', 'modal-dias-tour', 'modal-dni', 'modal-embarque', 'modal-monto', 'modal-notas'];
             inputs.forEach(id => {
                 const el = document.getElementById(id);
                 el.disabled = false;
@@ -1329,7 +1364,7 @@
             document.getElementById('modal-btns-view').classList.remove('hidden');
             document.getElementById('modal-btns-edit').classList.add('hidden');
 
-            const inputs = ['modal-nombre', 'modal-whatsapp', 'modal-ciudad', 'tour-input', 'modal-estado', 'modal-dni', 'modal-embarque', 'modal-monto', 'modal-notas'];
+            const inputs = ['modal-nombre', 'modal-whatsapp', 'modal-ciudad', 'tour-input', 'modal-estado', 'modal-dni', 'modal-embarque', 'modal-monto', 'modal-notas', 'modal-inicio-tour', 'modal-dias-tour'];
             inputs.forEach(id => {
                 const el = document.getElementById(id);
                 el.disabled = true;
@@ -1364,6 +1399,8 @@
                 Estado_contacto: document.getElementById('modal-estado').value,
                 DNI: document.getElementById('modal-dni').value,
                 Numero_personas: document.getElementById('modal-personas').value,
+                Fecha_inicio_tour: document.getElementById('modal-inicio-tour').value,
+                Duracion_dias_tour: document.getElementById('modal-dias-tour').value,
                 Punto_embarque: document.getElementById('modal-embarque').value,
                 Monto_cotizado: document.getElementById('modal-monto').value,
                 Notas: document.getElementById('modal-notas').value,
@@ -1399,6 +1436,8 @@
                     Estado_contacto: updated.Estado_contacto,
                     DNI: updated.DNI,
                     Numero_personas: updated.Numero_personas,
+                    Fecha_inicio_tour: updated.Fecha_inicio_tour,
+                    Duracion_dias_tour: updated.Duracion_dias_tour,
                     Punto_embarque: updated.Punto_embarque,
                     Monto_cotizado: updated.Monto_cotizado,
                     Notas: updated.Notas,
@@ -1510,7 +1549,8 @@
                 let statusColor = 'bg-slate-700 text-slate-300';
                 const st = (c.Estado_contacto || '').toLowerCase();
 
-                if (st.includes('reserva_turista')) statusColor = 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/20'; // Green
+                if (st.includes('turista') && !st.includes('reserva')) statusColor = 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/20'; // Green (Turista)
+                else if (st.includes('reserva')) statusColor = 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/20'; // Blue (Reserva)
                 else if (st.includes('info_enviada')) statusColor = 'bg-amber-500/20 text-amber-400 border border-amber-500/20'; // Orange
                 else if (st.includes('lead')) statusColor = 'bg-purple-500/20 text-purple-400 border border-purple-500/20'; // Purple
                 else if (st.includes('cancelado')) statusColor = 'bg-rose-500/20 text-rose-400 border border-rose-500/20'; // Red
@@ -1661,6 +1701,8 @@
                 Fecha_registro: now,
                 Fecha_ultimo_contacto: now,
                 Numero_personas: (formData.get('numero_personas') || '').trim(),
+                Fecha_inicio_tour: formData.get('fecha_inicio_tour'),
+                Duracion_dias_tour: formData.get('duracion_dias_tour'),
                 Monto_cotizado: montoStr,
                 Notas: (formData.get('notas') || '').trim(),
                 Origen: 'web_dashboard',
