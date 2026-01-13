@@ -202,6 +202,22 @@
                     </div>
                 </div>
 
+                <!-- OPERATIONAL FORECAST CHART (NEW) -->
+                <div class="glass-panel p-6 rounded-2xl flex flex-col mb-6 h-80">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="font-bold text-sm text-slate-300 uppercase tracking-wide">Pronóstico Operativo
+                            (Próximos 7 días)</h3>
+                        <div class="flex items-center gap-2">
+                            <span class="flex items-center gap-1 text-[10px] text-slate-500 uppercase font-bold">
+                                <div class="w-2 h-2 rounded-full bg-cyan-500"></div> Personas Activas
+                            </span>
+                        </div>
+                    </div>
+                    <div class="flex-1 relative w-full h-full min-h-0">
+                        <canvas id="chart-forecast"></canvas>
+                    </div>
+                </div>
+
                 <!-- CHARTS ROW 1 -->
                 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 h-96">
                     <!-- MAIN CHART -->
@@ -964,6 +980,115 @@
             renderTimelineChart();
             renderOriginChart();
             renderPackagesChart();
+            renderForecastChart();
+        }
+
+        function renderForecastChart() {
+            const ctx = document.getElementById('chart-forecast').getContext('2d');
+            if (charts.forecast) charts.forecast.destroy();
+
+            // 1. Generate 7-Day Window (Yesterday -> Today+5)
+            const dates = [];
+            const labels = [];
+            const start = new Date();
+            start.setDate(start.getDate() - 1); // Start from Yesterday
+
+            for (let i = 0; i < 7; i++) {
+                const d = new Date(start);
+                d.setDate(start.getDate() + i);
+                dates.push(d);
+                labels.push(d.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric' }));
+            }
+
+            // 2. Aggregate Data (Stacked by City)
+            const citiesSet = new Set();
+            state.contactos.forEach(c => { if (c.Ciudad_contacto) citiesSet.add(c.Ciudad_contacto); });
+            const cities = Array.from(citiesSet);
+            if (cities.length === 0) cities.push('Desconocido');
+
+            // Initialize datasets map: { 'Lima': [0,0...], 'Cusco': [0,0...] }
+            const datasetsMap = {};
+            cities.forEach(city => datasetsMap[city] = new Array(7).fill(0));
+
+            // 3. Populate Data
+            state.contactos.forEach(c => {
+                // Ignore Cancelled
+                if (c.Estado_contacto === 'Cancelado') return;
+
+                // Parse Tour Data
+                if (!c.Fecha_inicio_tour || !c.Duracion_dias_tour) return;
+
+                const startTour = new Date(c.Fecha_inicio_tour + 'T00:00:00'); // Assuming YYYY-MM-DD
+                const duration = parseInt(c.Duracion_dias_tour) || 1;
+                const endTour = new Date(startTour);
+                endTour.setDate(startTour.getDate() + duration); // Exclusive End Date
+
+                const personas = parseInt(c.Numero_personas) || 1;
+                const city = c.Ciudad_contacto || 'Desconocido';
+
+                // Check overlap with our 7-day window
+                dates.forEach((windowDate, index) => {
+                    // Compare timestamps (ignoring hours if normalized, but here simple comparison works if safe)
+                    // Safe normalization
+                    const wTime = new Date(windowDate.getFullYear(), windowDate.getMonth(), windowDate.getDate()).getTime();
+                    const sTime = new Date(startTour.getFullYear(), startTour.getMonth(), startTour.getDate()).getTime();
+                    const eTime = new Date(endTour.getFullYear(), endTour.getMonth(), endTour.getDate()).getTime();
+
+                    if (wTime >= sTime && wTime < eTime) {
+                        if (!datasetsMap[city]) datasetsMap[city] = new Array(7).fill(0); // Safety
+                        datasetsMap[city][index] += personas;
+                    }
+                });
+            });
+
+            // 4. Transform to Chart.js Datasets
+            const chartDatasets = cities.map((city, idx) => {
+                // Generate distinct colors
+                const hue = (idx * 360 / cities.length) % 360;
+                return {
+                    label: city,
+                    data: datasetsMap[city],
+                    backgroundColor: `hsla(${hue}, 70%, 60%, 0.8)`,
+                    borderColor: `hsla(${hue}, 70%, 50%, 1)`,
+                    borderWidth: 1,
+                    stack: 'Stack 0' // Enable Stacking
+                };
+            });
+
+            charts.forecast = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: chartDatasets
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'top', labels: { color: '#cbd5e1' } },
+                        tooltip: { mode: 'index', intersect: false }
+                    },
+                    scales: {
+                        y: {
+                            stacked: true,
+                            beginAtZero: true,
+                            grid: { color: '#334155' },
+                            ticks: { color: '#94a3b8', stepSize: 1 }
+                        },
+                        x: {
+                            stacked: true,
+                            grid: { display: false },
+                            ticks: { color: '#94a3b8' }
+                        }
+                    },
+                    // Interactivity: Click to filter (Simple console log for now, user asked for visual only)
+                    onClick: (e, elements) => {
+                        if (elements.length > 0) {
+                            // Could implement filter logic here later
+                        }
+                    }
+                }
+            });
         }
 
         function renderTimelineChart() {
@@ -1255,7 +1380,7 @@
 
         // --- MODAL LOGIC ---
         function openContactModal(id) {
-            const c = state.contactos.find(x => x.ID === id);
+            const c = state.contactos.find(x => String(x.ID) === String(id));
             if (!c) return;
 
             // Reset Edit Mode
