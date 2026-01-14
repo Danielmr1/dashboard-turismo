@@ -457,13 +457,35 @@
                                     </div>
                                 </div>
                             </div>
+                            <!-- CHANGED: N° Personas -> PAX, Plus Start Date & Duration -->
                             <div class="space-y-2">
-                                <label class="text-[10px] font-bold text-indigo-400 uppercase tracking-widest pl-1">N°
-                                    Personas</label>
+                                <label
+                                    class="text-[10px] font-bold text-indigo-400 uppercase tracking-widest pl-1">PAX</label>
                                 <input type="number" name="numero_personas" min="1"
                                     class="w-full bg-slate-950/50 border border-slate-700 rounded-xl p-3 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none transition"
                                     placeholder="1">
                             </div>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-4">
+                            <div class="space-y-2">
+                                <label
+                                    class="text-[10px] font-bold text-indigo-400 uppercase tracking-widest pl-1">Inicio
+                                    Tour</label>
+                                <input type="date" name="fecha_inicio_tour" id="form-inicio-tour"
+                                    class="w-full bg-slate-950/50 border border-slate-700 rounded-xl p-3 text-sm focus:border-indigo-500 text-slate-300 outline-none transition">
+                            </div>
+                            <div class="space-y-2">
+                                <label
+                                    class="text-[10px] font-bold text-indigo-400 uppercase tracking-widest pl-1">Duración
+                                    (Días)</label>
+                                <input type="number" name="duracion_dias_tour" min="1"
+                                    class="w-full bg-slate-950/50 border border-slate-700 rounded-xl p-3 text-sm focus:border-indigo-500 outline-none transition"
+                                    placeholder="Ej: 3">
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-4">
                             <div class="space-y-2">
                                 <label
                                     class="text-[10px] font-bold text-indigo-400 uppercase tracking-widest pl-1">Estado
@@ -475,6 +497,14 @@
                                     <option value="Reserva_Turista">Reserva_Turista</option>
                                     <option value="Cancelado">Cancelado</option>
                                 </select>
+                            </div>
+                            <div class="space-y-2">
+                                <label
+                                    class="text-[10px] font-bold text-indigo-400 uppercase tracking-widest pl-1">Punto
+                                    de Embarque</label>
+                                <input type="text" name="punto_embarque"
+                                    class="w-full bg-slate-950/50 border border-slate-700 rounded-xl p-3 text-sm focus:border-indigo-500 outline-none transition"
+                                    placeholder="Lugar de recojo">
                             </div>
                         </div>
 
@@ -629,14 +659,6 @@
                             </div>
                             <div>
                                 <label
-                                    class="text-[10px] uppercase tracking-wider text-slate-500 font-bold block mb-1">Punto
-                                    de Embarque</label>
-                                <input type="text" id="modal-embarque" disabled
-                                    class="w-full bg-transparent border-none text-slate-200 text-sm p-0 focus:ring-0 disabled:opacity-100"
-                                    value="-">
-                            </div>
-                            <div>
-                                <label
                                     class="text-[10px] uppercase tracking-wider text-slate-500 font-bold block mb-1">Monto
                                     Cotizado</label>
                                 <div class="flex items-center text-emerald-400 font-bold text-lg">
@@ -645,6 +667,36 @@
                                         class="ml-2 w-24 bg-transparent border-none text-emerald-400 font-bold p-0 focus:ring-0 disabled:opacity-100"
                                         value="0.00">
                                 </div>
+                            </div>
+                            <div>
+                                <label
+                                    class="text-[10px] uppercase tracking-wider text-slate-500 font-bold block mb-1">PAX</label>
+                                <input type="number" id="modal-personas" disabled
+                                    class="w-full bg-transparent border-none text-slate-200 text-sm p-0 focus:ring-0 disabled:opacity-100"
+                                    placeholder="1">
+                            </div>
+                            <div>
+                                <label
+                                    class="text-[10px] uppercase tracking-wider text-slate-500 font-bold block mb-1">Duración
+                                    (Días)</label>
+                                <input type="number" id="modal-dias-tour" disabled
+                                    class="w-full bg-transparent border-none text-slate-200 text-sm p-0 focus:ring-0 disabled:opacity-100"
+                                    placeholder="1">
+                            </div>
+                            <div>
+                                <label
+                                    class="text-[10px] uppercase tracking-wider text-slate-500 font-bold block mb-1">Punto
+                                    de Embarque</label>
+                                <input type="text" id="modal-embarque" disabled
+                                    class="w-full bg-transparent border-none text-slate-200 text-sm p-0 focus:ring-0 disabled:opacity-100"
+                                    value="-">
+                            </div>
+                            <div>
+                                <label
+                                    class="text-[10px] uppercase tracking-wider text-slate-500 font-bold block mb-1">Inicio
+                                    Tour</label>
+                                <input type="date" id="modal-inicio-tour" disabled
+                                    class="w-full bg-transparent border-none text-slate-200 text-sm p-0 focus:ring-0 disabled:opacity-100">
                             </div>
                             <div>
                                 <label
@@ -1638,31 +1690,31 @@
         }
 
         // --- EDIT MODE LOGIC ---
-        function enableEditMode() {
-            document.getElementById('modal-btns-view').classList.add('hidden');
-            document.getElementById('modal-btns-edit').classList.remove('hidden');
+        document.getElementById('modal-btns-edit').classList.remove('hidden');
 
-            const inputs = ['modal-nombre', 'modal-whatsapp', 'modal-ciudad', 'tour-input', 'modal-estado', 'modal-dni', 'modal-embarque', 'modal-monto', 'modal-notas'];
-            inputs.forEach(id => {
-                const el = document.getElementById(id);
+        const inputs = ['modal-nombre', 'modal-whatsapp', 'modal-ciudad', 'tour-input', 'modal-estado', 'modal-dni', 'modal-embarque', 'modal-monto', 'modal-notas', 'modal-personas', 'modal-dias-tour', 'modal-inicio-tour'];
+        inputs.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) {
                 el.disabled = false;
                 if (el.tagName === 'INPUT') el.classList.remove('border-none', 'bg-transparent');
                 // Optional: Add styling classes for active state
                 el.classList.add('bg-slate-800', 'border', 'border-slate-600');
-            });
+            }
+        });
         }
 
-        function disableEditMode() {
-            document.getElementById('modal-btns-view').classList.remove('hidden');
-            document.getElementById('modal-btns-edit').classList.add('hidden');
+        document.getElementById('modal-btns-edit').classList.add('hidden');
 
-            const inputs = ['modal-nombre', 'modal-whatsapp', 'modal-ciudad', 'tour-input', 'modal-estado', 'modal-dni', 'modal-embarque', 'modal-monto', 'modal-notas'];
-            inputs.forEach(id => {
-                const el = document.getElementById(id);
+        const inputs = ['modal-nombre', 'modal-whatsapp', 'modal-ciudad', 'tour-input', 'modal-estado', 'modal-dni', 'modal-embarque', 'modal-monto', 'modal-notas', 'modal-personas', 'modal-dias-tour', 'modal-inicio-tour'];
+        inputs.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) {
                 el.disabled = true;
                 if (el.tagName === 'INPUT') el.classList.add('border-none', 'bg-transparent');
                 el.classList.remove('bg-slate-800', 'border', 'border-slate-600');
-            });
+            }
+        });
         }
 
         async function saveContactChanges() {
@@ -1693,6 +1745,9 @@
                 Punto_embarque: document.getElementById('modal-embarque').value,
                 Monto_cotizado: document.getElementById('modal-monto').value,
                 Notas: document.getElementById('modal-notas').value,
+                PAX: document.getElementById('modal-personas').value,
+                Fecha_inicio_tour: document.getElementById('modal-inicio-tour').value,
+                Duracion_dias_tour: document.getElementById('modal-dias-tour').value,
                 Fecha_ultimo_contacto: new Date().toLocaleString('sv-SE', { timeZone: 'America/Lima' }).replace(' ', 'T')
             };
 
@@ -1727,6 +1782,10 @@
                     Punto_embarque: updated.Punto_embarque,
                     Monto_cotizado: updated.Monto_cotizado,
                     Notas: updated.Notas,
+                    Numero_personas: updated.PAX, // Map back to Sheet Header if needed
+                    PAX: updated.PAX,
+                    Fecha_inicio_tour: updated.Fecha_inicio_tour,
+                    Duracion_dias_tour: updated.Duracion_dias_tour,
                     Fecha_registro: updated.Fecha_registro, // <--- Added this to preserve it
                     Fecha_ultimo_contacto: updated.Fecha_ultimo_contacto,
                     Origen: updated.Origen,
@@ -1984,7 +2043,10 @@
                 Punto_embarque: (formData.get('punto_embarque') || '').trim(),
                 Fecha_registro: now,
                 Fecha_ultimo_contacto: now,
-                Numero_personas: (formData.get('numero_personas') || '').trim(),
+                Numero_personas: (formData.get('numero_personas') || '').trim(), // Legacy
+                PAX: (formData.get('numero_personas') || '').trim(), // New Standard
+                Fecha_inicio_tour: (formData.get('fecha_inicio_tour') || ''),
+                Duracion_dias_tour: (formData.get('duracion_dias_tour') || ''),
                 Monto_cotizado: montoStr,
                 Notas: (formData.get('notas') || '').trim(),
                 Origen: 'web_dashboard',
