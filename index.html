@@ -500,46 +500,45 @@
                                     <option value="Cancelado">Cancelado</option>
                                 </select>
                             </div>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-4">
                             <div class="space-y-2">
+                                <label
+                                    class="text-[10px] font-bold text-indigo-400 uppercase tracking-widest pl-1">Punto
+                                    de Embarque</label>
+                                <input type="text" name="punto_embarque"
+                                    class="w-full bg-slate-950/50 border border-slate-700 rounded-xl p-3 text-sm focus:border-indigo-500 outline-none transition"
+                                    placeholder="Lugar de recojo">
+                            </div>
+                            <div class="space-y-2">
+                                <label
+                                    class="text-[10px] font-bold text-indigo-400 uppercase tracking-widest pl-1">Monto
+                                    Cotizado (S/)</label>
+                                <input type="number" step="0.1" name="monto"
+                                    class="w-full bg-slate-950/50 border border-slate-700 rounded-xl p-3 text-sm focus:border-indigo-500 outline-none transition"
+                                    placeholder="0.00">
                             </div>
                         </div>
+
+                        <div class="space-y-2">
+                            <label class="text-[10px] font-bold text-indigo-400 uppercase tracking-widest pl-1">Notas /
+                                Observaciones</label>
+                            <textarea name="notas" rows="2"
+                                class="w-full bg-slate-950/50 border border-slate-700 rounded-xl p-3 text-sm focus:border-indigo-500 outline-none transition"
+                                placeholder="Detalles adicionales..."></textarea>
+                        </div>
+
+
+
+                        <button type="submit"
+                            class="w-full py-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold shadow-lg shadow-emerald-900/50 transition transform active:scale-95 flex items-center justify-center gap-2 mt-4 group">
+                            <span>REGISTRAR CONTACTO</span>
+                            <i class="fas fa-paper-plane group-hover:translate-x-1 transition"></i>
+                        </button>
+                    </form>
                 </div>
-
-                <div class="grid grid-cols-2 gap-4">
-                    <div class="space-y-2">
-                        <label class="text-[10px] font-bold text-indigo-400 uppercase tracking-widest pl-1">Punto
-                            de Embarque</label>
-                        <input type="text" name="punto_embarque"
-                            class="w-full bg-slate-950/50 border border-slate-700 rounded-xl p-3 text-sm focus:border-indigo-500 outline-none transition"
-                            placeholder="Lugar de recojo">
-                    </div>
-                    <div class="space-y-2">
-                        <label class="text-[10px] font-bold text-indigo-400 uppercase tracking-widest pl-1">Monto
-                            Cotizado (S/)</label>
-                        <input type="number" step="0.1" name="monto"
-                            class="w-full bg-slate-950/50 border border-slate-700 rounded-xl p-3 text-sm focus:border-indigo-500 outline-none transition"
-                            placeholder="0.00">
-                    </div>
-                </div>
-
-                <div class="space-y-2">
-                    <label class="text-[10px] font-bold text-indigo-400 uppercase tracking-widest pl-1">Notas /
-                        Observaciones</label>
-                    <textarea name="notas" rows="2"
-                        class="w-full bg-slate-950/50 border border-slate-700 rounded-xl p-3 text-sm focus:border-indigo-500 outline-none transition"
-                        placeholder="Detalles adicionales..."></textarea>
-                </div>
-
-
-
-                <button type="submit"
-                    class="w-full py-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold shadow-lg shadow-emerald-900/50 transition transform active:scale-95 flex items-center justify-center gap-2 mt-4 group">
-                    <span>REGISTRAR CONTACTO</span>
-                    <i class="fas fa-paper-plane group-hover:translate-x-1 transition"></i>
-                </button>
-                </form>
             </div>
-        </div>
 
         </div>
     </main>
