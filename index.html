@@ -183,9 +183,6 @@
                         <p class="text-slate-400 text-xs font-bold uppercase tracking-widest mb-1">Ingresos Estimados
                         </p>
                         <h3 class="text-3xl font-black text-white" id="kpi-ingresos">S/ --</h3>
-                        <p class="text-emerald-400 text-[10px] font-bold mt-2 flex items-center gap-1">
-                            <i class="fas fa-arrow-up"></i> <span id="kpi-ingresos-meta">Monto Cotizado</span>
-                        </p>
                     </div>
 
                     <div class="glass-panel p-5 rounded-2xl relative overflow-hidden group">
@@ -195,7 +192,6 @@
                         </div>
                         <p class="text-slate-400 text-xs font-bold uppercase tracking-widest mb-1">Total PAX</p>
                         <h3 class="text-3xl font-black text-white" id="kpi-leads">--</h3>
-                        <p class="text-indigo-400 text-[10px] font-bold mt-2">Personas Registradas</p>
                     </div>
 
                     <div class="glass-panel p-5 rounded-2xl relative overflow-hidden group">
@@ -205,7 +201,6 @@
                         </div>
                         <p class="text-slate-400 text-xs font-bold uppercase tracking-widest mb-1">Paquete Top</p>
                         <h3 class="text-xl font-black text-white truncate" id="kpi-top-package">--</h3>
-                        <p class="text-amber-400 text-[10px] font-bold mt-2">Más solicitado</p>
                     </div>
 
                     <div class="glass-panel p-5 rounded-2xl relative overflow-hidden group">
@@ -215,7 +210,6 @@
                         </div>
                         <p class="text-slate-400 text-xs font-bold uppercase tracking-widest mb-1">Origen Principal</p>
                         <h3 class="text-2xl font-black text-white" id="kpi-top-city">--</h3>
-                        <p class="text-rose-400 text-[10px] font-bold mt-2">Mayor afluencia</p>
                     </div>
                 </div>
 
@@ -285,7 +279,7 @@
                                 <thead class="text-slate-500 font-semibold border-b border-slate-700">
                                     <tr>
                                         <th class="pb-3 pl-2">Nombre</th>
-                                        <th class="pb-3 text-center">Fecha</th>
+                                        <th class="pb-3 text-center">Tour</th>
                                         <th class="pb-3 text-right">Monto</th>
                                     </tr>
                                 </thead>
@@ -1236,7 +1230,10 @@
 
         function renderForecastChart() {
             const ctxWrapper = document.getElementById('chart-forecast');
-            if (!ctxWrapper) return;
+            if (!ctxWrapper) {
+                console.error("Forecast Canvas Not Found");
+                return;
+            }
             const ctx = ctxWrapper.getContext('2d');
             if (charts.forecast) charts.forecast.destroy();
 
@@ -1244,9 +1241,10 @@
             const labels = [];
             const dates = [];
             const today = new Date();
+            today.setHours(0, 0, 0, 0); // Normalize Today
 
             for (let i = -1; i < 6; i++) {
-                const d = new Date();
+                const d = new Date(today);
                 d.setDate(today.getDate() + i);
                 dates.push(d);
 
@@ -1260,8 +1258,13 @@
 
             // 2. Identify Active Tourists (Datasets)
             const activeContacts = [];
+
+            // Debug Log
+            // console.log("Rendering Forecast. Total contacts:", state.contactos.length);
+
             const palette = {
-                'Lima': '#e11d48',    // pi                      'Tingo María': '#10b981', // emerald-500
+                'Lima': '#e11d48',
+                'Tingo María': '#10b981', // emerald-500
                 'Huánuco': '#d97706', // amber-600
                 'Selva Central': '#8b5cf6', // violet-500
                 'Oxapampa': '#0ea5e9',   // sky-500
@@ -1282,21 +1285,29 @@
                 activeContacts.push(c);
             });
 
+            // console.log("Active Forecast Contacts:", activeContacts.length);
+
             const datasets = activeContacts.map(c => {
                 const city = (c.Ciudad_contacto || 'Otro').trim();
                 const color = palette[city] || (palette[Object.keys(palette).find(k => city.includes(k))] || defaultColor);
 
                 const data = dates.map(date => {
                     const start = new Date(c.Fecha_inicio_tour.replace(/-/g, '/'));
+                    start.setHours(0, 0, 0, 0);
+
                     const duration = parseInt(c.Duracion_dias_tour) || 1;
                     const end = new Date(start);
-                    end.setDate(end.getDate() + duration);
+                    end.setDate(start.getDate() + duration);
+                    // end is exclusive boundary in typical loops, but here we want inclusive days
+                    // [Start, End) logic usually works if we compare: date >= start && date < end
+                    // If duration 1: Start 15, End 16. Window 15 is >=15 and <16. OK.
 
-                    const currentStr = date.toISOString().split('T')[0];
-                    const startStr = start.toISOString().split('T')[0];
-                    const endStr = end.toISOString().split('T')[0];
+                    // Compare Timestamps to avoid timezone issues
+                    const dTime = date.getTime();
+                    const sTime = start.getTime();
+                    const eTime = end.getTime();
 
-                    if (currentStr >= startStr && currentStr < endStr) {
+                    if (dTime >= sTime && dTime < eTime) {
                         return 1; // 1 Box per Person
                     }
                     return 0;
@@ -1314,6 +1325,8 @@
                     guestPax: c.PAX
                 };
             }).filter(ds => ds !== null);
+
+            // console.log("Forecast Datasets:", datasets.length);
 
             charts.forecast = new Chart(ctx, {
                 type: 'bar',
