@@ -1690,31 +1690,32 @@
         }
 
         // --- EDIT MODE LOGIC ---
-        document.getElementById('modal-btns-edit').classList.remove('hidden');
+        function enableEditMode() {
+            document.getElementById('modal-btns-edit').classList.remove('hidden');
 
-        const inputs = ['modal-nombre', 'modal-whatsapp', 'modal-ciudad', 'tour-input', 'modal-estado', 'modal-dni', 'modal-embarque', 'modal-monto', 'modal-notas', 'modal-personas', 'modal-dias-tour', 'modal-inicio-tour'];
-        inputs.forEach(id => {
-            const el = document.getElementById(id);
-            if (el) {
-                el.disabled = false;
-                if (el.tagName === 'INPUT') el.classList.remove('border-none', 'bg-transparent');
-                // Optional: Add styling classes for active state
-                el.classList.add('bg-slate-800', 'border', 'border-slate-600');
-            }
-        });
+            const inputs = ['modal-nombre', 'modal-whatsapp', 'modal-ciudad', 'tour-input', 'modal-estado', 'modal-dni', 'modal-embarque', 'modal-monto', 'modal-notas', 'modal-personas', 'modal-dias-tour', 'modal-inicio-tour'];
+            inputs.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) {
+                    el.disabled = false;
+                    if (el.tagName === 'INPUT') el.classList.remove('border-none', 'bg-transparent');
+                    el.classList.add('bg-slate-800', 'border', 'border-slate-600');
+                }
+            });
         }
 
-        document.getElementById('modal-btns-edit').classList.add('hidden');
+        function disableEditMode() {
+            document.getElementById('modal-btns-edit').classList.add('hidden');
 
-        const inputs = ['modal-nombre', 'modal-whatsapp', 'modal-ciudad', 'tour-input', 'modal-estado', 'modal-dni', 'modal-embarque', 'modal-monto', 'modal-notas', 'modal-personas', 'modal-dias-tour', 'modal-inicio-tour'];
-        inputs.forEach(id => {
-            const el = document.getElementById(id);
-            if (el) {
-                el.disabled = true;
-                if (el.tagName === 'INPUT') el.classList.add('border-none', 'bg-transparent');
-                el.classList.remove('bg-slate-800', 'border', 'border-slate-600');
-            }
-        });
+            const inputs = ['modal-nombre', 'modal-whatsapp', 'modal-ciudad', 'tour-input', 'modal-estado', 'modal-dni', 'modal-embarque', 'modal-monto', 'modal-notas', 'modal-personas', 'modal-dias-tour', 'modal-inicio-tour'];
+            inputs.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) {
+                    el.disabled = true;
+                    if (el.tagName === 'INPUT') el.classList.add('border-none', 'bg-transparent');
+                    el.classList.remove('bg-slate-800', 'border', 'border-slate-600');
+                }
+            });
         }
 
         async function saveContactChanges() {
