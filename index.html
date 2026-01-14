@@ -136,16 +136,34 @@
     <main class="flex-1 flex flex-col h-full overflow-hidden relative">
         <!-- HEADER -->
         <header
-            class="h-16 bg-slate-900/50 backdrop-blur-md border-b border-slate-800 flex items-center justify-between px-8 z-20">
-            <h2 id="page-title" class="text-xl font-bold text-white tracking-tight">Dashboard</h2>
+            class="bg-slate-900/50 backdrop-blur-md border-b border-slate-700/50 p-4 lg:px-8 flex justify-between items-center sticky top-0 z-40">
+            <div class="flex items-center gap-4">
+                <button id="mobile-menu-btn" class="lg:hidden text-slate-400 hover:text-white transition">
+                    <i class="fas fa-bars text-xl"></i>
+                </button>
+                <h2 class="text-xl font-bold text-white tracking-tight">Dashboard</h2>
+            </div>
+
+            <!-- GLOBAL DATE FILTER (Overview Only) -->
+            <div id="global-date-filter" class="hidden md:flex bg-slate-800 rounded-lg p-1 border border-slate-700">
+                <button onclick="setGlobalFilter('30d')" id="btn-filter-30d"
+                    class="px-3 py-1 text-xs font-bold rounded-md transition bg-indigo-600 text-white shadow-lg">
+                    Últimos 30 días
+                </button>
+                <button onclick="setGlobalFilter('general')" id="btn-filter-general"
+                    class="px-3 py-1 text-xs font-bold rounded-md transition text-slate-400 hover:text-white hover:bg-slate-700">
+                    General
+                </button>
+            </div>
+
             <div class="flex items-center gap-4">
                 <button onclick="refreshData()"
-                    class="p-2 text-slate-400 hover:text-white transition rounded-full hover:bg-slate-800"
+                    class="text-slate-400 hover:text-white transition transform hover:rotate-180 duration-500"
                     title="Actualizar Datos">
                     <i class="fas fa-sync-alt" id="refresh-icon"></i>
                 </button>
                 <div
-                    class="w-8 h-8 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-500 border border-white/20">
+                    class="w-8 h-8 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-500 shadow-lg shadow-indigo-500/20">
                 </div>
             </div>
         </header>
@@ -166,8 +184,7 @@
                         </p>
                         <h3 class="text-3xl font-black text-white" id="kpi-ingresos">S/ --</h3>
                         <p class="text-emerald-400 text-[10px] font-bold mt-2 flex items-center gap-1">
-                            <i class="fas fa-arrow-up"></i> <span id="kpi-ingresos-meta">Monto Cotizado (últimos 30
-                                días)</span>
+                            <i class="fas fa-arrow-up"></i> <span id="kpi-ingresos-meta">Monto Cotizado</span>
                         </p>
                     </div>
 
@@ -176,9 +193,9 @@
                             class="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition transform group-hover:scale-110">
                             <i class="fas fa-calendar-check text-6xl text-indigo-400"></i>
                         </div>
-                        <p class="text-slate-400 text-xs font-bold uppercase tracking-widest mb-1">Total Leads</p>
+                        <p class="text-slate-400 text-xs font-bold uppercase tracking-widest mb-1">Total PAX</p>
                         <h3 class="text-3xl font-black text-white" id="kpi-leads">--</h3>
-                        <p class="text-indigo-400 text-[10px] font-bold mt-2">Registrados en Sheet</p>
+                        <p class="text-indigo-400 text-[10px] font-bold mt-2">Personas Registradas</p>
                     </div>
 
                     <div class="glass-panel p-5 rounded-2xl relative overflow-hidden group">
@@ -765,7 +782,8 @@
             filteredContactos: [],
             currentPage: 1,
             rowsPerPage: 10,
-            loading: true
+            loading: true,
+            globalFilter: '30d' // '30d' or 'general'
         };
 
         // --- CHART INSTANCES ---
@@ -895,41 +913,86 @@
         }
 
         function updateDashboard() {
+            // Show/Hide Global Filter based on View
+            const filterDiv = document.getElementById('global-date-filter');
+            const overview = document.getElementById('view-overview');
+            if (filterDiv && overview) {
+                if (!overview.classList.contains('hidden')) filterDiv.classList.remove('hidden', 'md:flex'); // Restore flex
+                else filterDiv.classList.add('hidden');
+            }
+
             updateKPIs();
             renderCharts();
             renderTablePreview();
-            applyFilters(); // Re-applies filters and (re)renders table
+            applyFilters();
+        }
+
+        // --- GLOBAL FILTER LOGIC ---
+        function setGlobalFilter(mode) {
+            state.globalFilter = mode;
+
+            // Visual Update
+            const btn30 = document.getElementById('btn-filter-30d');
+            const btnGen = document.getElementById('btn-filter-general');
+
+            if (mode === '30d') {
+                btn30.className = 'px-3 py-1 text-xs font-bold rounded-md transition bg-indigo-600 text-white shadow-lg';
+                btnGen.className = 'px-3 py-1 text-xs font-bold rounded-md transition text-slate-400 hover:text-white hover:bg-slate-700';
+            } else {
+                btnGen.className = 'px-3 py-1 text-xs font-bold rounded-md transition bg-indigo-600 text-white shadow-lg';
+                btn30.className = 'px-3 py-1 text-xs font-bold rounded-md transition text-slate-400 hover:text-white hover:bg-slate-700';
+            }
+
+            updateDashboard();
+        }
+
+        function getAnalysisData() {
+            if (state.globalFilter === 'general') return state.contactos;
+
+            // 30 Days Logic
+            const limit = new Date();
+            limit.setDate(limit.getDate() - 30);
+            limit.setHours(0, 0, 0, 0);
+
+            return state.contactos.filter(c => {
+                const d = c.Fecha_registro ? new Date(c.Fecha_registro.replace(/-/g, '/')) : new Date(0);
+                return d >= limit;
+            });
         }
 
         function updateKPIs() {
-            // 1. Ingresos (Last 30 Days)
-            const limitDate = new Date();
-            limitDate.setDate(limitDate.getDate() - 30);
+            const data = getAnalysisData();
 
-            const total = state.contactos.reduce((sum, c) => {
-                const regDate = c.Fecha_registro ? new Date(c.Fecha_registro.replace(' ', 'T')) : new Date(0); // Handle missing dates safe + ISO Fix
-                // Filter: Last 30 days AND NOT Cancelled
-                if (regDate >= limitDate && c.Estado_contacto !== 'Cancelado') {
+            // 1. Ingresos (Estimated) - Sum of visible data
+            const total = data.reduce((sum, c) => {
+                if (c.Estado_contacto !== 'Cancelado') {
                     return sum + (parseFloat(c.Monto_cotizado) || 0);
                 }
                 return sum;
             }, 0);
             document.getElementById('kpi-ingresos').innerText = `S/ ${total.toLocaleString('es-PE', { minimumFractionDigits: 0 })}`;
 
-            // 2. Leads
-            document.getElementById('kpi-leads').innerText = state.contactos.length;
+            // 2. Leads -> PAX
+            // Sum 'PAX' field (default 1)
+            const totalPax = data.reduce((sum, c) => {
+                return sum + (parseInt(c.PAX) || 1);
+            }, 0);
+            document.getElementById('kpi-leads').innerText = totalPax;
 
             // 3. Top Package
             const counts = {};
-            state.contactos.forEach(c => { if (c.Tour_interes) counts[c.Tour_interes] = (counts[c.Tour_interes] || 0) + 1; });
+            data.forEach(c => { // Weight by PAX? Or Frequency? Usually Frequency for "Most Requested". Let's use Frequency for now.
+                let t = c.Tour_interes || 'Indefinido';
+                counts[t] = (counts[t] || 0) + 1;
+            });
             const topPkg = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
             document.getElementById('kpi-top-package').innerText = topPkg ? topPkg[0] : 'N/A';
 
             // 4. Top City
             const cities = {};
-            state.contactos.forEach(c => {
+            data.forEach(c => {
                 let city = c.Ciudad_contacto || 'Desconocido';
-                cities[city] = (cities[city] || 0) + 1;
+                cities[city] = (cities[city] || 0) + (parseInt(c.PAX) || 1); // Weight by PAX for "Most Affluence"
             });
             const topCity = Object.entries(cities).sort((a, b) => b[1] - a[1])[0];
             document.getElementById('kpi-top-city').innerText = topCity ? topCity[0] : 'N/A';
@@ -941,30 +1004,56 @@
             renderPackagesChart();
         }
 
+
+
         function renderTimelineChart() {
-            const ctx = document.getElementById('chart-timeline').getContext('2d');
+            const ctxWrapper = document.getElementById('chart-timeline');
+            if (!ctxWrapper) return;
+            const ctx = ctxWrapper.getContext('2d');
             if (charts.timeline) charts.timeline.destroy();
 
-            // Group by date
+            const isGeneral = state.globalFilter === 'general';
+            const data = getAnalysisData();
             const grouped = {};
-            state.contactos.forEach(c => {
+
+            // Update Chart Title based on Filter
+            // Note: Canvas doesn't change title, but we can change the DOM element if we want.
+            // For now, let's just make sure the data is right.
+
+            data.forEach(c => {
                 if (!c.Fecha_registro) return;
-                // Parse date assuming DD/MM/YYYY or YYYY-MM-DD
-                let d = c.Fecha_registro.split(' ')[0]; // Take only date part
-                grouped[d] = (grouped[d] || 0) + 1;
+                // Parse date
+                let d = c.Fecha_registro.split(' ')[0]; // YYYY-MM-DD
+
+                let key;
+                if (isGeneral) {
+                    // YYYY-MM
+                    const parts = d.split('-');
+                    if (parts.length >= 2) key = `${parts[0]}-${parts[1]}`;
+                    else key = d;
+                } else {
+                    key = d; // Daily
+                }
+
+                const pax = parseInt(c.PAX) || 1;
+                grouped[key] = (grouped[key] || 0) + pax;
             });
 
             // Sort dates
-            const labels = Object.keys(grouped).sort((a, b) => new Date(a) - new Date(b)).slice(-14); // Last 14 entries
-            const dataPts = labels.map(l => grouped[l]);
+            const allKeys = Object.keys(grouped).sort();
+            // If 30 days, we might want to fill gaps? 
+            // The previous logic took last 14 entries.
+            // Let's just show what we have.
+
+            const datasetsData = allKeys.map(k => grouped[k]);
 
             charts.timeline = new Chart(ctx, {
                 type: 'line',
                 data: {
-                    labels: labels,
+                    labels: allKeys,
                     datasets: [{
-                        label: 'Nuevos Leads',
-                        data: dataPts,
+                        label: 'PAX', // Renamed from New Leads
+                        data: datasetsData,
                         borderColor: '#6366f1',
                         backgroundColor: 'rgba(99, 102, 241, 0.1)',
                         fill: true,
@@ -976,28 +1065,43 @@
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    plugins: { legend: { display: false } },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: function (context) {
+                                    return `PAX: ${context.raw}`;
+                                }
+                            }
+                        }
+                    },
                     scales: {
                         y: {
                             beginAtZero: true,
                             grid: { color: '#334155' },
-                            ticks: { stepSize: 1, precision: 0 } // Integers only
+                            ticks: { stepSize: 1, precision: 0 }
                         },
-                        x: { grid: { display: false } }
+                        x: { grid: { display: false }, ticks: { color: '#94a3b8' } }
                     }
                 }
             });
         }
 
         function renderOriginChart() {
-            const ctx = document.getElementById('chart-origin').getContext('2d');
+            const ctxWrapper = document.getElementById('chart-origin');
+            if (!ctxWrapper) return;
+            const ctx = ctxWrapper.getContext('2d');
             if (charts.origin) charts.origin.destroy();
 
             const cities = { 'Lima': 0, 'Huancayo': 0, 'Tingo María': 0, 'Otros': 0 };
-            state.contactos.forEach(c => {
+            const data = getAnalysisData(); // Use Filtered Data
+
+            data.forEach(c => {
                 let city = c.Ciudad_contacto ? c.Ciudad_contacto.trim() : 'Otros';
-                if (cities.hasOwnProperty(city)) cities[city]++;
-                else cities['Otros']++;
+                const pax = parseInt(c.PAX) || 1;
+
+                if (cities.hasOwnProperty(city)) cities[city] += pax;
+                else cities['Otros'] += pax;
             });
 
             charts.origin = new Chart(ctx, {
@@ -1020,39 +1124,74 @@
         }
 
         function renderPackagesChart() {
-            const ctx = document.getElementById('chart-packages').getContext('2d');
+            const ctxWrapper = document.getElementById('chart-packages');
+            if (!ctxWrapper) return;
+            const ctx = ctxWrapper.getContext('2d');
             if (charts.pkg) charts.pkg.destroy();
 
             const counts = {};
-            state.contactos.forEach(c => {
+            const data = getAnalysisData(); // Use Global Filter
+
+            data.forEach(c => {
+                if (c.Estado_contacto === 'Cancelado') return;
+
                 let t = c.Tour_interes || 'Indefinido';
-                counts[t] = (counts[t] || 0) + 1;
+                if (!t.trim()) t = 'Indefinido';
+
+                // PAX weighted
+                const pax = parseInt(c.PAX) || 1;
+                counts[t] = (counts[t] || 0) + pax;
             });
 
             const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 5);
 
+            // Polar Area Colors
+            const polarColors = [
+                'hsla(250, 70%, 65%, 0.7)',
+                'hsla(190, 80%, 60%, 0.7)',
+                'hsla(320, 70%, 60%, 0.7)',
+                'hsla(40, 90%, 60%, 0.7)',
+                'hsla(150, 60%, 50%, 0.7)'
+            ];
+            const polarBorders = [
+                'hsla(250, 70%, 50%, 1)',
+                'hsla(190, 80%, 45%, 1)',
+                'hsla(320, 70%, 45%, 1)',
+                'hsla(40, 90%, 45%, 1)',
+                'hsla(150, 60%, 35%, 1)'
+            ];
+
             charts.pkg = new Chart(ctx, {
-                type: 'bar',
+                type: 'polarArea', // RESTORED POLAR AREA
                 data: {
                     labels: sorted.map(i => i[0].length > 15 ? i[0].substring(0, 15) + '...' : i[0]),
                     datasets: [{
-                        label: 'Ventas',
+                        label: 'PAX',
                         data: sorted.map(i => i[1]),
-                        backgroundColor: '#fbbf24',
-                        borderRadius: 6
+                        backgroundColor: polarColors,
+                        borderColor: polarBorders,
+                        borderWidth: 1
                     }]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    plugins: { legend: { display: false } },
+                    plugins: {
+                        legend: { position: 'right', labels: { color: '#cbd5e1', font: { size: 10 } } },
+                        tooltip: {
+                            callbacks: {
+                                label: function (context) {
+                                    return ` ${context.label}: ${context.raw} PAX`;
+                                }
+                            }
+                        }
+                    },
                     scales: {
-                        y: {
-                            beginAtZero: true,
+                        r: {
                             grid: { color: '#334155' },
-                            ticks: { stepSize: 1, precision: 0 } // Integers only
-                        },
-                        x: { grid: { display: false }, ticks: { color: '#94a3b8', font: { size: 10 } } }
+                            ticks: { display: false, backdropColor: 'transparent' },
+                            pointLabels: { display: false }
+                        }
                     }
                 }
             });
@@ -1082,7 +1221,7 @@
             }
 
             last5.forEach(c => {
-                 // Stack Tours Logic
+                // Stack Tours Logic
                 const tours = (c.Tour_interes || '-').split(',').map(t => t.trim()).join('<br>');
 
                 tbody.innerHTML += `
@@ -1138,7 +1277,7 @@
                 if (!c.Fecha_inicio_tour) return;
 
                 const start = new Date(c.Fecha_inicio_tour.replace(/-/g, '/'));
-                if(isNaN(start.getTime())) return;
+                if (isNaN(start.getTime())) return;
 
                 activeContacts.push(c);
             });
@@ -1443,6 +1582,14 @@
             if (!statusSel.value) statusSel.value = 'Lead';
 
             document.getElementById('modal-dni').value = c.DNI || '';
+            document.getElementById('modal-personas').value = c.PAX || '';
+            document.getElementById('modal-inicio-tour').value = c.Fecha_inicio_tour ? c.Fecha_inicio_tour.split('T')[0] : '';
+
+            // Restrict Date Picker to Today
+            const todayISO = new Date().toISOString().split('T')[0];
+            document.getElementById('modal-inicio-tour').setAttribute('min', todayISO);
+
+            document.getElementById('modal-dias-tour').value = c.Duracion_dias_tour || '';
             document.getElementById('modal-embarque').value = c.Punto_embarque || '';
             document.getElementById('modal-monto').value = parseFloat(c.Monto_cotizado) || 0;
             document.getElementById('modal-fecha-contacto').innerText = c.Fecha_ultimo_contacto ? c.Fecha_ultimo_contacto.replace('T', ' ').split('.')[0] : '-';
