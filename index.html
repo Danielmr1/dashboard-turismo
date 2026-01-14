@@ -184,7 +184,6 @@
                             class="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition transform group-hover:scale-110">
                             <i class="fas fa-calendar-check text-6xl text-indigo-400"></i>
                         </div>
-                        <p class="text-slate-400 text-xs font-bold uppercase tracking-widest mb-1">Total PAX</p>
                         <h3 class="text-3xl font-black text-white" id="kpi-leads">--</h3>
                     </div>
 
@@ -210,7 +209,8 @@
                 <!-- OPERATIONAL FORECAST CHART (NEW) -->
                 <div class="glass-panel p-6 rounded-2xl flex flex-col mb-6 h-80">
                     <div class="flex justify-between items-center mb-4">
-                        <h3 class="font-bold text-sm text-slate-300 uppercase tracking-wide">Pronóstico Operativo</h3>
+                        <h3 class="font-bold text-sm text-slate-300 uppercase tracking-wide">Pronóstico Operativo
+                            (Próximos 7 días)</h3>
                         <div class="flex items-center gap-2">
                             <span class="flex items-center gap-1 text-[10px] text-slate-500 uppercase font-bold">
                                 <div class="w-2 h-2 rounded-full bg-cyan-500"></div> Personas Activas
@@ -265,7 +265,7 @@
                                 <thead class="text-slate-500 font-semibold border-b border-slate-700">
                                     <tr>
                                         <th class="pb-3 pl-2">Nombre</th>
-                                        <th class="pb-3 text-center">Tours</th>
+                                        <th class="pb-3 text-center">Fecha</th>
                                         <th class="pb-3 text-right">Monto</th>
                                     </tr>
                                 </thead>
@@ -780,16 +780,173 @@
 
     <script>
         // --- CONSTANTS & CONFIG ---
-
         const SHEET_CSV_CONTACTOS = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRBnkhcj5Gp9QMwMJmr1p1z6gcw3wShIC247dJ3V3qzwkEwkZEwJqroj3LIh826G4CaPBdZQAEIGoD0/pub?gid=0&single=true&output=csv';
-        const SHEET_CSV_PAQUETES = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRBnkhcj5Gp9QMwMJmr1p1z6gcw3wShIC247dJ3V3qzwkEwkZEwJqroj3LIh826G4CaPBdZQAEIGoD0/pub?gid=323733221&single=true&output=csv';
+        const SHEET_CSV_PAQUETES = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRBnkhcj5Gp9QMwMJmr1p1z6gcw3wShIC247dJ3V3qzwkEwkZEwJqroj3LIh826G4CaPBdZQAEIGoD0/pub?gid=245309544&single=true&output=csv';
+        // Using direct gviz URL for the new tab as it might not be published to web as 'pub' yet, or just for consistency with manual GID provided.
+        // Actually, for public sheets, the /pub?gid=... format is often used for 'Published to Web'.
+        // But the user gave me a GID from the edit URL. The safest and most immediate way for private-ish sheets that are shared with "Anyone with link" is often gviz or the export call.
+        // Let's use the export format which consistently works for GIDs if the sheet is open.
+        // https://docs.google.com/spreadsheets/d/[ID]/export?format=csv&gid=[GID]
+        // But the existing ones use /pub? which implies "File > Share > Publish to Web".
+        // The user might not have "Published to Web" the specific tab.
+        // I'll try the /export format first which is usually robust if the sheet is generally public/shared.
+        // ID: 16qnWmfEMjb0OJ_I_xMypB279m_a5jOg1V1l1sqbCcNA
+        // GID: 127481278
         const SHEET_CSV_CIUDADES = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRBnkhcj5Gp9QMwMJmr1p1z6gcw3wShIC247dJ3V3qzwkEwkZEwJqroj3LIh826G4CaPBdZQAEIGoD0/pub?gid=127481278&single=true&output=csv';
         const WEBHOOK_URL = 'https://nonisotropic-ungrindable-kristie.ngrok-free.dev/webhook/update-dashboard'; // Public Tunnel URL for Netlify
 
 
 
+        function renderForecastChart() {
+            const ctxWrapper = document.getElementById('chart-forecast');
+            if (!ctxWrapper) return;
+            const ctx = ctxWrapper.getContext('2d');
+            if (charts.forecast) charts.forecast.destroy();
 
+            // 1. Time Window: Yesterday (-1) to +5
+            const labels = [];
+            const dates = [];
+            const today = new Date();
 
+            for (let i = -1; i < 6; i++) {
+                const d = new Date();
+                d.setDate(today.getDate() + i);
+                dates.push(d);
+
+                const dow = d.toLocaleDateString('es-ES', { weekday: 'short' });
+                const dayNum = d.getDate();
+
+                if (i === 0) labels.push(`HOY ${dow} ${dayNum}`);
+                else if (i === -1) labels.push(`AYER ${dow} ${dayNum}`);
+                else labels.push(`${dow} ${dayNum}`);
+            }
+
+            // 2. Identify Active Tourists (Datasets)
+            const activeContacts = [];
+            const palette = {
+                'Lima': '#e11d48',    // pink-600
+                'Tingo María': '#10b981', // emerald-500
+                'Huánuco': '#d97706', // amber-600
+                'Selva Central': '#8b5cf6', // violet-500
+                'Oxapampa': '#0ea5e9',   // sky-500
+                'Ayacucho': '#f43f5e',
+                'Huacho': '#14b8a6',
+                'Otro': '#64748b' // slate-500
+            };
+            const defaultColor = '#64748b';
+
+            state.contactos.forEach(c => {
+                const status = (c.Estado_contacto || '').trim();
+                // Forecast logic: Active Tourists. Usually confirmed bookings?
+                // Let's include everything that has a date, user can see status in tooltip if needed?
+                // Or filter 'Cancelado'.
+                if (status === 'Cancelado') return;
+                if (!c.Fecha_inicio_tour) return;
+
+                const start = new Date(c.Fecha_inicio_tour.replace(/-/g, '/'));
+                const duration = parseInt(c.Duracion_dias_tour) || 1;
+                // Basic validation
+                if (isNaN(start.getTime())) return;
+
+                activeContacts.push(c);
+            });
+
+            const datasets = activeContacts.map(c => {
+                const city = (c.Ciudad_contacto || 'Otro').trim();
+                const color = palette[city] || (palette[Object.keys(palette).find(k => city.includes(k))] || defaultColor);
+
+                const data = dates.map(date => {
+                    const start = new Date(c.Fecha_inicio_tour.replace(/-/g, '/'));
+                    const duration = parseInt(c.Duracion_dias_tour) || 1;
+                    const end = new Date(start);
+                    end.setDate(end.getDate() + duration);
+
+                    const currentStr = date.toISOString().split('T')[0];
+                    const startStr = start.toISOString().split('T')[0];
+                    const endStr = end.toISOString().split('T')[0];
+
+                    if (currentStr >= startStr && currentStr < endStr) {
+                        return 1; // 1 Box per Person
+                    }
+                    return 0;
+                });
+
+                // Drop empty datasets
+                if (data.every(v => v === 0)) return null;
+
+                return {
+                    label: city, // Used for Legend grouping
+                    data: data,
+                    backgroundColor: color,
+                    stack: 'combined', // Stack everyone together
+                    // Custom Metadata for Tooltip
+                    guestName: c.Nombre,
+                    guestWsp: c.Numero_whatsapp,
+                    guestPax: c.PAX
+                };
+            }).filter(ds => ds !== null);
+
+            charts.forecast = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: datasets
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                            labels: {
+                                color: '#cbd5e1',
+                                font: { size: 10 },
+                                boxWidth: 10,
+                                // Filter unique cities for legend
+                                filter: function (item, chart) {
+                                    const label = item.text;
+                                    const datasets = chart.data.datasets;
+                                    const index = datasets.findIndex(ds => ds.label === label);
+                                    return item.datasetIndex === index;
+                                }
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                title: (items) => {
+                                    if (items.length > 0) {
+                                        return items[0].dataset.guestName; // Show Name in Title
+                                    }
+                                    return '';
+                                },
+                                label: (context) => {
+                                    const ds = context.dataset;
+                                    return ` WSP: ${ds.guestWsp} (PAX: ${ds.guestPax || 1})`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            stacked: true,
+                            beginAtZero: true,
+                            grid: { color: '#334155' },
+                            ticks: { stepSize: 1, precision: 0 }
+                        },
+                        x: {
+                            stacked: true,
+                            grid: { display: false },
+                            ticks: { color: '#94a3b8', font: { size: 11 } }
+                        }
+                    },
+                    interaction: {
+                        mode: 'nearest',
+                        axis: 'x',
+                        intersect: false
+                    }
+                }
+            });
+        }
 
         function renderTimelineChart() {
             const ctx = document.getElementById('chart-timeline').getContext('2d');
@@ -977,159 +1134,6 @@
             });
         }
 
-
-        function renderForecastChart() {
-            const ctxWrapper = document.getElementById('chart-forecast');
-            if (!ctxWrapper) return;
-            const ctx = ctxWrapper.getContext('2d');
-            if (charts.forecast) charts.forecast.destroy();
-
-            // 1. Time Window: Yesterday (-1) to +5
-            const labels = [];
-            const dates = [];
-            const today = new Date();
-
-            for (let i = -1; i < 6; i++) {
-                const d = new Date();
-                d.setDate(today.getDate() + i);
-                dates.push(d);
-
-                const dow = d.toLocaleDateString('es-ES', { weekday: 'short' });
-                const dayNum = d.getDate();
-
-                if (i === 0) labels.push(`HOY ${dow} ${dayNum}`);
-                else if (i === -1) labels.push(`AYER ${dow} ${dayNum}`);
-                else labels.push(`${dow} ${dayNum}`);
-            }
-
-            // 2. Identify Active Tourists (Datasets)
-            const activeContacts = [];
-            const palette = {
-                'Lima': '#e11d48',    // pink-600
-                'Tingo María': '#10b981', // emerald-500
-                'Huánuco': '#d97706', // amber-600
-                'Selva Central': '#8b5cf6', // violet-500
-                'Oxapampa': '#0ea5e9',   // sky-500
-                'Ayacucho': '#f43f5e',
-                'Huacho': '#14b8a6',
-                'Otro': '#64748b' // slate-500
-            };
-            const defaultColor = '#64748b';
-
-            state.contactos.forEach(c => {
-                const status = (c.Estado_contacto || '').trim();
-                // Forecast logic: show Active tours regardless of status (unless cancelled)?
-                // Or follow table logic? Usually Forecast is Operational, so "active on tour".
-                if (status === 'Cancelado') return;
-                if (!c.Fecha_inicio_tour) return;
-
-                const start = new Date(c.Fecha_inicio_tour.replace(/-/g, '/'));
-                const duration = parseInt(c.Duracion_dias_tour) || 1;
-                const end = new Date(start);
-                end.setDate(end.getDate() + duration); // Exclusive end
-
-                activeContacts.push(c);
-            });
-
-            const datasets = activeContacts.map(c => {
-                const city = (c.Ciudad_contacto || 'Otro').trim();
-                const color = palette[city] || (palette[Object.keys(palette).find(k => city.includes(k))] || defaultColor);
-
-                const data = dates.map(date => {
-                    const start = new Date(c.Fecha_inicio_tour.replace(/-/g, '/'));
-                    const duration = parseInt(c.Duracion_dias_tour) || 1;
-                    const end = new Date(start);
-                    end.setDate(end.getDate() + duration);
-
-                    const currentStr = date.toISOString().split('T')[0];
-                    const startStr = start.toISOString().split('T')[0];
-                    const endStr = end.toISOString().split('T')[0];
-
-                    if (currentStr >= startStr && currentStr < endStr) {
-                        // Active this day. Return 1 block per person (height 1) or PAX?
-                        // "Individual blocks" implies we see the person. Height 1 is safest for stacking people.
-                        return 1;
-                    }
-                    return 0;
-                });
-
-                // Drop empty datasets
-                if (data.every(v => v === 0)) return null;
-
-                return {
-                    label: city, // Used for Legend grouping
-                    data: data,
-                    backgroundColor: color,
-                    stack: 'combined', // Stack everyone together
-                    // Custom Metadata for Tooltip
-                    guestName: c.Nombre,
-                    guestWsp: c.Numero_whatsapp,
-                    guestPax: c.PAX
-                };
-            }).filter(ds => ds !== null);
-
-            charts.forecast = new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: labels,
-                    datasets: datasets
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            position: 'top',
-                            labels: {
-                                color: '#cbd5e1',
-                                font: { size: 10 },
-                                boxWidth: 10,
-                                // Filter unique cities for legend
-                                filter: function (item, chart) {
-                                    const label = item.text;
-                                    const datasets = chart.data.datasets;
-                                    const index = datasets.findIndex(ds => ds.label === label);
-                                    return item.datasetIndex === index;
-                                }
-                            }
-                        },
-                        tooltip: {
-                            callbacks: {
-                                title: (items) => {
-                                    if (items.length > 0) {
-                                        return items[0].dataset.guestName; // Show Name in Title
-                                    }
-                                    return '';
-                                },
-                                label: (context) => {
-                                    const ds = context.dataset;
-                                    return ` WSP: ${ds.guestWsp} (PAX: ${ds.guestPax || 1})`;
-                                }
-                            }
-                        }
-                    },
-                    scales: {
-                        y: {
-                            stacked: true,
-                            beginAtZero: true,
-                            grid: { color: '#334155' },
-                            ticks: { stepSize: 1, precision: 0 }
-                        },
-                        x: {
-                            stacked: true,
-                            grid: { display: false },
-                            ticks: { color: '#94a3b8', font: { size: 11 } }
-                        }
-                    },
-                    interaction: {
-                        mode: 'nearest',
-                        axis: 'x',
-                        intersect: false
-                    }
-                }
-            });
-        }
-
         function renderTablePreview() {
             const tbody = document.getElementById('table-preview-body');
             tbody.innerHTML = '';
@@ -1140,8 +1144,7 @@
                 return status === 'reserva' || status === 'turista';
             });
 
-            // Sort by ID descending (C-00010 > C-00009) to ensure latest are shown
-            // Fallback to insertion order (reverse) if IDs are messy
+            // Sort by ID descending (Latest first)
             const sorted = valid.sort((a, b) => {
                 const idA = parseInt((a.ID || '0').replace(/\D/g, ''));
                 const idB = parseInt((b.ID || '0').replace(/\D/g, ''));
@@ -1156,10 +1159,10 @@
 
             last5.forEach(c => {
                 // Stack Tours Logic
-                const tours = (c.Tour_interes || '-').split(',').map(t => t.trim()).join('<br>'); // Stack with <br>
+                const tours = (c.Tour_interes || '-').split(',').map(t => t.trim()).join('<br>');
 
                 tbody.innerHTML += `
-                    <tr class="hover:bg-slate-800/10 transition border-b border-slate-700/50 cursor-pointer">
+                    <tr class="hover:bg-slate-800/10 transition border-b border-slate-700/50 cursor-pointer" onclick="openContactModal('${c.ID}')">
                         <td class="py-3 pl-2 max-w-[120px] truncate font-medium text-white" title="${c.Nombre}">${c.Nombre}</td>
                         <td class="py-3 text-center text-[10px] text-slate-400 font-mono leading-tight">${tours}</td>
                         <td class="py-3 text-right text-emerald-400 font-bold text-xs">${c.Monto_cotizado ? 'S/' + c.Monto_cotizado : '-'}</td>
