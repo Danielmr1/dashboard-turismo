@@ -1143,7 +1143,7 @@
             const dates = [];
             const today = new Date(); // Local time
 
-            for (let i = 0; i < 7; i++) {
+            for (let i = -1; i < 6; i++) {
                 // Force fresh calculation on every iteration to avoid reference issues
                 const d = new Date();
                 d.setDate(d.getDate() + i);
@@ -1155,24 +1155,29 @@
 
                 if (i === 0) {
                     labels.push(`HOY ${dow} ${dayNum}`);
+                } else if (i === -1) {
+                    // Start of window
+                    labels.push(`${dow} ${dayNum}`);
                 } else {
                     labels.push(`${dow} ${dayNum}`);
                 }
             }
 
-            // 2. Aggregate Data per City per Day
-            // Structure: datasets = [ { label: 'Lima', data: [2, 0, 5, ...] }, ... ]
-            const cities = ['Lima', 'Tingo María', 'Huánuco', 'Selva Central', 'Oxapampa'];
-            // Dynamic Colors
-            const colors = {
-                'Lima': '#e11d48',    // pink-600
-                'Tingo María': '#10b981', // emerald-500
-                'Huánuco': '#d97706', // amber-600
-                'Selva Central': '#8b5cf6', // violet-500
-                'Oxapampa': '#0ea5e9'   // sky-500
-            };
+            // 2. Aggregate Data per City per Day (DYNAMIC)
+            const uniqueCities = new Set();
+            state.contactos.forEach(c => {
+                const status = (c.Estado_contacto || '').trim();
+                const city = (c.Ciudad_contacto || '').trim();
+                // We trust the exact string from the Sheet now
+                if (status !== 'Cancelado' && city) uniqueCities.add(city);
+            });
+            const cities = Array.from(uniqueCities).sort();
 
-            const datasets = cities.map(city => {
+            // Dynamic Palette
+            const palette = ['#e11d48', '#10b981', '#d97706', '#8b5cf6', '#0ea5e9', '#f43f5e', '#6366f1', '#84cc16'];
+
+            const datasets = cities.map((city, idx) => {
+                const colors = { [city]: palette[idx % palette.length] }; // Temp adapter for logic below
                 const data = dates.map(date => {
                     // Check all contacts active on this date
                     // Logic: StartDate <= date < StartDate + Duration
@@ -1204,7 +1209,7 @@
                 return {
                     label: city,
                     data: data,
-                    backgroundColor: colors[city] || '#94a3b8',
+                    backgroundColor: palette[idx % palette.length] || '#94a3b8',
                     borderRadius: 4,
                     barPercentage: 0.6,
                     // Metadata for tooltip
