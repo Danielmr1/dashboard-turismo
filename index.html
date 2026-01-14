@@ -312,7 +312,8 @@
                             <option value="">Todos los Estados</option>
                             <option value="Lead">Lead</option>
                             <option value="Info_enviada">Info_enviada</option>
-                            <option value="Reserva_Turista">Reserva_Turista</option>
+                            <option value="Reserva">Reserva</option>
+                            <option value="Turista">Turista</option>
                             <option value="Cancelado">Cancelado</option>
                         </select>
                         <select id="filter-city" onchange="applyFilters()"
@@ -494,57 +495,51 @@
                                     class="w-full bg-slate-950/50 border border-slate-700 rounded-xl p-3 text-sm focus:border-indigo-500 outline-none transition text-slate-300">
                                     <option value="Lead">Lead</option>
                                     <option value="Info_enviada">Info_enviada</option>
-                                    <option value="Reserva_Turista">Reserva_Turista</option>
+                                    <option value="Reserva">Reserva</option>
+                                    <option value="Turista">Turista</option>
                                     <option value="Cancelado">Cancelado</option>
                                 </select>
                             </div>
                             <div class="space-y-2">
-                                <label
-                                    class="text-[10px] font-bold text-indigo-400 uppercase tracking-widest pl-1">Punto
-                                    de Embarque</label>
-                                <input type="text" name="punto_embarque"
-                                    class="w-full bg-slate-950/50 border border-slate-700 rounded-xl p-3 text-sm focus:border-indigo-500 outline-none transition"
-                                    placeholder="Lugar de recojo">
                             </div>
                         </div>
-
-                        <div class="grid grid-cols-2 gap-4">
-                            <div class="space-y-2">
-                                <label
-                                    class="text-[10px] font-bold text-indigo-400 uppercase tracking-widest pl-1">Punto
-                                    de Embarque</label>
-                                <input type="text" name="punto_embarque"
-                                    class="w-full bg-slate-950/50 border border-slate-700 rounded-xl p-3 text-sm focus:border-indigo-500 outline-none transition"
-                                    placeholder="Lugar de recojo">
-                            </div>
-                            <div class="space-y-2">
-                                <label
-                                    class="text-[10px] font-bold text-indigo-400 uppercase tracking-widest pl-1">Monto
-                                    Cotizado (S/)</label>
-                                <input type="number" step="0.1" name="monto"
-                                    class="w-full bg-slate-950/50 border border-slate-700 rounded-xl p-3 text-sm focus:border-indigo-500 outline-none transition"
-                                    placeholder="0.00">
-                            </div>
-                        </div>
-
-                        <div class="space-y-2">
-                            <label class="text-[10px] font-bold text-indigo-400 uppercase tracking-widest pl-1">Notas /
-                                Observaciones</label>
-                            <textarea name="notas" rows="2"
-                                class="w-full bg-slate-950/50 border border-slate-700 rounded-xl p-3 text-sm focus:border-indigo-500 outline-none transition"
-                                placeholder="Detalles adicionales..."></textarea>
-                        </div>
-
-
-
-                        <button type="submit"
-                            class="w-full py-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold shadow-lg shadow-emerald-900/50 transition transform active:scale-95 flex items-center justify-center gap-2 mt-4 group">
-                            <span>REGISTRAR CONTACTO</span>
-                            <i class="fas fa-paper-plane group-hover:translate-x-1 transition"></i>
-                        </button>
-                    </form>
                 </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="space-y-2">
+                        <label class="text-[10px] font-bold text-indigo-400 uppercase tracking-widest pl-1">Punto
+                            de Embarque</label>
+                        <input type="text" name="punto_embarque"
+                            class="w-full bg-slate-950/50 border border-slate-700 rounded-xl p-3 text-sm focus:border-indigo-500 outline-none transition"
+                            placeholder="Lugar de recojo">
+                    </div>
+                    <div class="space-y-2">
+                        <label class="text-[10px] font-bold text-indigo-400 uppercase tracking-widest pl-1">Monto
+                            Cotizado (S/)</label>
+                        <input type="number" step="0.1" name="monto"
+                            class="w-full bg-slate-950/50 border border-slate-700 rounded-xl p-3 text-sm focus:border-indigo-500 outline-none transition"
+                            placeholder="0.00">
+                    </div>
+                </div>
+
+                <div class="space-y-2">
+                    <label class="text-[10px] font-bold text-indigo-400 uppercase tracking-widest pl-1">Notas /
+                        Observaciones</label>
+                    <textarea name="notas" rows="2"
+                        class="w-full bg-slate-950/50 border border-slate-700 rounded-xl p-3 text-sm focus:border-indigo-500 outline-none transition"
+                        placeholder="Detalles adicionales..."></textarea>
+                </div>
+
+
+
+                <button type="submit"
+                    class="w-full py-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold shadow-lg shadow-emerald-900/50 transition transform active:scale-95 flex items-center justify-center gap-2 mt-4 group">
+                    <span>REGISTRAR CONTACTO</span>
+                    <i class="fas fa-paper-plane group-hover:translate-x-1 transition"></i>
+                </button>
+                </form>
             </div>
+        </div>
 
         </div>
     </main>
@@ -645,7 +640,8 @@
                                     class="w-full bg-transparent border-none text-xs font-medium text-slate-300 p-0 focus:ring-0 disabled:opacity-100 uppercase">
                                     <option value="Lead">Lead</option>
                                     <option value="Info_enviada">Info_enviada</option>
-                                    <option value="Reserva_Turista">Reserva_Turista</option>
+                                    <option value="Reserva">Reserva</option>
+                                    <option value="Turista">Turista</option>
                                     <option value="Cancelado">Cancelado</option>
                                 </select>
                             </div>
@@ -1630,14 +1626,15 @@
             let st = (c.Estado_contacto || 'Lead');
             // Compatibility Mapping
             const map = {
+                'lead': 'Lead',
                 'nuevo': 'Lead',
                 'contactado': 'Lead',
                 'cotizacion': 'Info_enviada',
                 'interesado': 'Info_enviada',
-                'reserva': 'Reserva_Turista',
-                'reserva confirmada': 'Reserva_Turista',
-                'turista': 'Reserva_Turista',
-                'confirmada': 'Reserva_Turista'
+                'reserva': 'Reserva',
+                'reserva confirmada': 'Reserva',
+                'turista': 'Turista',
+                'confirmada': 'Reserva'
             };
             if (map[st.toLowerCase()]) st = map[st.toLowerCase()];
 
@@ -1894,7 +1891,8 @@
                 let statusColor = 'bg-slate-700 text-slate-300';
                 const st = (c.Estado_contacto || '').toLowerCase();
 
-                if (st.includes('reserva_turista')) statusColor = 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/20'; // Green
+                if (st.includes('reserva')) statusColor = 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/20'; // Green
+                else if (st.includes('turista')) statusColor = 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/20'; // Cyan
                 else if (st.includes('info_enviada')) statusColor = 'bg-amber-500/20 text-amber-400 border border-amber-500/20'; // Orange
                 else if (st.includes('lead')) statusColor = 'bg-purple-500/20 text-purple-400 border border-purple-500/20'; // Purple
                 else if (st.includes('cancelado')) statusColor = 'bg-rose-500/20 text-rose-400 border border-rose-500/20'; // Red
