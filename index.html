@@ -184,6 +184,7 @@
                             class="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition transform group-hover:scale-110">
                             <i class="fas fa-calendar-check text-6xl text-indigo-400"></i>
                         </div>
+                        <p class="text-slate-400 text-xs font-bold uppercase tracking-widest mb-1">Total PAX</p>
                         <h3 class="text-3xl font-black text-white" id="kpi-leads">--</h3>
                     </div>
 
@@ -1143,8 +1144,9 @@
             const today = new Date(); // Local time
 
             for (let i = 0; i < 7; i++) {
-                const d = new Date(today);
-                d.setDate(today.getDate() + i);
+                // Force fresh calculation on every iteration to avoid reference issues
+                const d = new Date();
+                d.setDate(d.getDate() + i);
                 dates.push(d);
 
                 // Format: "HOY lun 12" or "mar 13"
@@ -1266,9 +1268,11 @@
             tbody.innerHTML = '';
 
             // Filter: Only 'Reserva' or 'Turista'
-            const valid = state.contactos.filter(c =>
-                c.Estado_contacto === 'Reserva' || c.Estado_contacto === 'Turista'
-            );
+            // Use .trim() to handle potential whitespace in Sheet data
+            const valid = state.contactos.filter(c => {
+                const status = (c.Estado_contacto || '').trim();
+                return status === 'Reserva' || status === 'Turista';
+            });
 
             // Show last 5 of filtered
             const last5 = [...valid].reverse().slice(0, 5);
