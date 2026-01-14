@@ -209,8 +209,7 @@
                 <!-- OPERATIONAL FORECAST CHART (NEW) -->
                 <div class="glass-panel p-6 rounded-2xl flex flex-col mb-6 h-80">
                     <div class="flex justify-between items-center mb-4">
-                        <h3 class="font-bold text-sm text-slate-300 uppercase tracking-wide">Pronóstico Operativo
-                            (Próximos 7 días)</h3>
+                        <h3 class="font-bold text-sm text-slate-300 uppercase tracking-wide">Pronóstico Operativo</h3>
                         <div class="flex items-center gap-2">
                             <span class="flex items-center gap-1 text-[10px] text-slate-500 uppercase font-bold">
                                 <div class="w-2 h-2 rounded-full bg-cyan-500"></div> Personas Activas
@@ -265,7 +264,7 @@
                                 <thead class="text-slate-500 font-semibold border-b border-slate-700">
                                     <tr>
                                         <th class="pb-3 pl-2">Nombre</th>
-                                        <th class="pb-3 text-center">Fecha</th>
+                                        <th class="pb-3 text-center">Tours</th>
                                         <th class="pb-3 text-right">Monto</th>
                                     </tr>
                                 </thead>
@@ -1131,16 +1130,157 @@
             });
         }
 
+
+        function renderForecastChart() {
+            const ctxWrapper = document.getElementById('chart-forecast');
+            if (!ctxWrapper) return;
+            const ctx = ctxWrapper.getContext('2d');
+            if (charts.forecast) charts.forecast.destroy();
+
+            // 1. Generate 7-Day Window
+            const labels = [];
+            const dates = [];
+            const today = new Date(); // Local time
+
+            for (let i = 0; i < 7; i++) {
+                const d = new Date(today);
+                d.setDate(today.getDate() + i);
+                dates.push(d);
+
+                // Format: "HOY lun 12" or "mar 13"
+                const dow = d.toLocaleDateString('es-ES', { weekday: 'short' });
+                const dayNum = d.getDate();
+
+                if (i === 0) {
+                    labels.push(`HOY ${dow} ${dayNum}`);
+                } else {
+                    labels.push(`${dow} ${dayNum}`);
+                }
+            }
+
+            // 2. Aggregate Data per City per Day
+            // Structure: datasets = [ { label: 'Lima', data: [2, 0, 5, ...] }, ... ]
+            const cities = ['Lima', 'Tingo María', 'Huánuco', 'Selva Central', 'Oxapampa'];
+            // Dynamic Colors
+            const colors = {
+                'Lima': '#e11d48',    // pink-600
+                'Tingo María': '#10b981', // emerald-500
+                'Huánuco': '#d97706', // amber-600
+                'Selva Central': '#8b5cf6', // violet-500
+                'Oxapampa': '#0ea5e9'   // sky-500
+            };
+
+            const datasets = cities.map(city => {
+                const data = dates.map(date => {
+                    // Check all contacts active on this date
+                    // Logic: StartDate <= date < StartDate + Duration
+                    // Also: Status != Cancelled
+                    return state.contactos.reduce((count, c) => {
+                        if (c.Estado_contacto === 'Cancelado') return count;
+                        if (!c.Fecha_inicio_tour) return count;
+
+                        const start = new Date(c.Fecha_inicio_tour.replace(/-/g, '/')); // Fix timezone offset issues
+                        const duration = parseInt(c.Duracion_dias_tour) || 1;
+                        const end = new Date(start);
+                        end.setDate(end.getDate() + duration);
+
+                        // Normalize to YYYY-MM-DD comparisons to avoid time glitches
+                        const currentStr = date.toISOString().split('T')[0];
+                        const startStr = start.toISOString().split('T')[0];
+                        const endStr = end.toISOString().split('T')[0];
+
+                        // Is Active?
+                        if (currentStr >= startStr && currentStr < endStr) {
+                            // Check City Match (or 'Others')
+                            let cCity = c.Ciudad_contacto || '';
+                            if (cCity.includes(city)) return count + (parseInt(c.PAX) || 1);
+                        }
+                        return count;
+                    }, 0);
+                });
+
+                return {
+                    label: city,
+                    data: data,
+                    backgroundColor: colors[city] || '#94a3b8',
+                    borderRadius: 4,
+                    barPercentage: 0.6,
+                    // Metadata for tooltip
+                    city: city
+                };
+            });
+
+            charts.forecast = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: datasets
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                            labels: { color: '#cbd5e1', font: { size: 10 }, boxWidth: 10 }
+                        },
+                        tooltip: {
+                            mode: 'index',
+                            intersect: false,
+                            callbacks: {
+                                title: (items) => {
+                                    // Full date on tooltip header
+                                    if (items.length > 0) {
+                                        const idx = items[0].dataIndex;
+                                        return dates[idx].toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+                                    }
+                                    return '';
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            stacked: true,
+                            beginAtZero: true,
+                            grid: { color: '#334155' },
+                            ticks: { stepSize: 1, precision: 0 }
+                        },
+                        x: {
+                            stacked: true,
+                            grid: { display: false },
+                            ticks: { color: '#94a3b8', font: { size: 11 } }
+                        }
+                    },
+                    interaction: {
+                        mode: 'nearest',
+                        axis: 'x',
+                        intersect: false
+                    }
+                }
+            });
+        }
+
         function renderTablePreview() {
             const tbody = document.getElementById('table-preview-body');
             tbody.innerHTML = '';
-            // Show last 5
-            const last5 = [...state.contactos].reverse().slice(0, 5);
+
+            // Filter: Only 'Reserva' or 'Turista'
+            const valid = state.contactos.filter(c =>
+                c.Estado_contacto === 'Reserva' || c.Estado_contacto === 'Turista'
+            );
+
+            // Show last 5 of filtered
+            const last5 = [...valid].reverse().slice(0, 5);
+
             last5.forEach(c => {
+                // Stack Tours Logic
+                const tours = (c.Tour_interes || '-').split(',').map(t => t.trim()).join('<br>'); // Stack with <br>
+
                 tbody.innerHTML += `
                     <tr class="hover:bg-slate-800/50 transition">
-                        <td class="py-3 pl-2 max-w-[120px] truncate font-medium text-white">${c.Nombre}</td>
-                        <td class="py-3 text-center text-[10px] text-slate-400 font-mono">${c.Fecha_registro ? c.Fecha_registro.split(' ')[0] : '-'}</td>
+                        <td class="py-3 pl-2 max-w-[120px] truncate font-medium text-white" title="${c.Nombre}">${c.Nombre}</td>
+                        <td class="py-3 text-center text-[10px] text-slate-400 font-mono leading-tight">${tours}</td>
                         <td class="py-3 text-right text-emerald-400 font-bold text-xs">${c.Monto_cotizado ? 'S/' + c.Monto_cotizado : '-'}</td>
                     </tr>
                 `;
