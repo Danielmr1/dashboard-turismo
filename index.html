@@ -1215,36 +1215,74 @@
 
             const counts = {};
             state.contactos.forEach(c => {
+                // Ignore Cancelled for stats
+                if (c.Estado_contacto === 'Cancelado') return;
+
                 let t = c.Tour_interes || 'Indefinido';
-                counts[t] = (counts[t] || 0) + 1;
+                if (!t.trim()) t = 'Indefinido';
+
+                // WEIGHTED LOGIC: Sum 'Numero_personas' instead of counting rows
+                const personas = parseInt(c.Numero_personas) || 1; // Default to 1 if missing
+                counts[t] = (counts[t] || 0) + personas;
             });
+
+            // Parse and Separate Multiple Tours (comma separated strings) - Optional cleanup
+            // For now, assuming exact matches or primary interest. 
+            // If data has "Tour A, Tour B", it counts as its own category or we split. 
+            // Given the complexity, let's keep it simple: Exact string match for now.
 
             const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 5);
 
+            // Dynamic Gradient/Colors for Polar Area
+            const polarColors = [
+                'hsla(250, 70%, 65%, 0.7)',
+                'hsla(190, 80%, 60%, 0.7)',
+                'hsla(320, 70%, 60%, 0.7)',
+                'hsla(40, 90%, 60%, 0.7)',
+                'hsla(150, 60%, 50%, 0.7)'
+            ];
+            const polarBorders = [
+                'hsla(250, 70%, 50%, 1)',
+                'hsla(190, 80%, 45%, 1)',
+                'hsla(320, 70%, 45%, 1)',
+                'hsla(40, 90%, 45%, 1)',
+                'hsla(150, 60%, 35%, 1)'
+            ];
+
             charts.pkg = new Chart(ctx, {
-                type: 'bar',
+                type: 'polarArea',
                 data: {
                     labels: sorted.map(i => i[0].length > 15 ? i[0].substring(0, 15) + '...' : i[0]),
                     datasets: [{
-                        label: 'Ventas',
+                        label: 'Pers',
                         data: sorted.map(i => i[1]),
-                        backgroundColor: '#fbbf24',
-                        borderRadius: 6
+                        backgroundColor: polarColors,
+                        borderColor: polarBorders,
+                        borderWidth: 1
                     }]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    plugins: { legend: { display: false } },
+                    plugins: {
+                        legend: { position: 'right', labels: { color: '#cbd5e1', font: { size: 10 } } },
+                        tooltip: {
+                            callbacks: {
+                                label: function (context) {
+                                    return ` ${context.label}: ${context.raw} personas`;
+                                }
+                            }
+                        }
+                    },
                     scales: {
-                        y: {
-                            beginAtZero: true,
+                        r: {
                             grid: { color: '#334155' },
-                            ticks: { stepSize: 1, precision: 0 } // Integers only
-                        },
-                        x: { grid: { display: false }, ticks: { color: '#94a3b8', font: { size: 10 } } }
+                            ticks: { display: false, backdropColor: 'transparent' }, // Clean look
+                            pointLabels: { display: false } // Hide labels on the chart itself, use legend
+                        }
                     }
                 }
+            }
             });
         }
 
