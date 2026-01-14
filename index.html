@@ -1055,6 +1055,7 @@
                         label: city, // Label is City for Legend
                         realName: c.Nombre, // Custom prop for Tooltip
                         contactID: c.ID,    // Custom prop for Click Filter
+                        whatsapp: c.Numero_whatsapp || '', // Added WhatsApp
                         data: data,
                         backgroundColor: cityColors[city].bg,
                         borderColor: cityColors[city].border,
@@ -1092,11 +1093,12 @@
                             intersect: true,
                             callbacks: {
                                 label: function (context) {
-                                    // Custom Label: "City: Name (N pers)"
+                                    // Custom Label: "Name - Whatsapp (N pers)"
                                     const raw = context.raw;
                                     const name = context.dataset.realName || 'Turista';
-                                    const city = context.dataset.label;
-                                    return `${city}: ${name} (${raw})`;
+                                    const wsp = context.dataset.whatsapp || 'Sin número';
+                                    //const city = context.dataset.label;
+                                    return `${name} - ${wsp} (${raw} pers)`;
                                 }
                             }
                         }
@@ -1115,24 +1117,14 @@
                         }
                     },
                     // Interactivity: Click to filter table by ID
+                    // Interactivity: Click shows toast but DOES NOT filter table
                     onClick: (e, elements) => {
                         if (elements.length > 0) {
                             const datasetIndex = elements[0].datasetIndex;
-                            const targetID = chartDatasets[datasetIndex].contactID;
                             const targetName = chartDatasets[datasetIndex].realName;
 
-                            // Set Global Filter: Specific ID
-                            state.dateFilter = { id: targetID, name: targetName }; // Changed format
-                            applyFilters();
-
-                            showToast(`Filtrando: ${targetName}`, 'info');
-                            document.getElementById('table-preview-body').scrollIntoView({ behavior: 'smooth' });
-                        } else {
-                            if (state.dateFilter) {
-                                state.dateFilter = null;
-                                applyFilters();
-                                showToast('Filtro eliminado', 'info');
-                            }
+                            // Visual Feedback Only (User requested NO table navigation)
+                            showToast(`Seleccionado: ${targetName}`, 'info');
                         }
                     }
                 }
