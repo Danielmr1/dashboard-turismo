@@ -1783,7 +1783,6 @@
                     Punto_embarque: updated.Punto_embarque,
                     Monto_cotizado: updated.Monto_cotizado,
                     Notas: updated.Notas,
-                    Numero_personas: updated.PAX, // Map back to Sheet Header if needed
                     PAX: updated.PAX,
                     Fecha_inicio_tour: updated.Fecha_inicio_tour,
                     Duracion_dias_tour: updated.Duracion_dias_tour,
@@ -2044,8 +2043,7 @@
                 Punto_embarque: (formData.get('punto_embarque') || '').trim(),
                 Fecha_registro: now,
                 Fecha_ultimo_contacto: now,
-                Numero_personas: (formData.get('numero_personas') || '').trim(), // Legacy
-                PAX: (formData.get('numero_personas') || '').trim(), // New Standard
+                PAX: (formData.get('numero_personas') || '').trim(),
                 Fecha_inicio_tour: (formData.get('fecha_inicio_tour') || ''),
                 Duracion_dias_tour: (formData.get('duracion_dias_tour') || ''),
                 Monto_cotizado: montoStr,
