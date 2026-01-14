@@ -138,15 +138,27 @@
         <header
             class="h-16 bg-slate-900/50 backdrop-blur-md border-b border-slate-800 flex items-center justify-between px-8 z-20">
             <h2 id="page-title" class="text-xl font-bold text-white tracking-tight">Dashboard</h2>
-            <div class="flex items-center gap-4">
-                <button onclick="refreshData()"
-                    class="p-2 text-slate-400 hover:text-white transition rounded-full hover:bg-slate-800"
-                    title="Actualizar Datos">
-                    <i class="fas fa-sync-alt" id="refresh-icon"></i>
+
+            <!-- GLOBAL PERIOD FILTER (Only Visible in Overview) -->
+            <div id="global-filter-container"
+                class="hidden md:flex bg-slate-800 rounded-lg p-1 border border-slate-700">
+                <button onclick="setPeriodFilter('30_days')" id="btn-filter-30"
+                    class="px-3 py-1 rounded-md text-xs font-bold transition bg-indigo-500 text-white shadow-lg">
+                    Últimos 30 días
                 </button>
-                <div
-                    class="w-8 h-8 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-500 border border-white/20">
-                </div>
+                <button onclick="setPeriodFilter('general')" id="btn-filter-general"
+                    class="px-3 py-1 rounded-md text-xs font-bold transition text-slate-400 hover:text-white hover:bg-slate-700">
+                    General
+                </button>
+            </div>
+
+            <button onclick="refreshData()"
+                class="p-2 text-slate-400 hover:text-white transition rounded-full hover:bg-slate-800"
+                title="Actualizar Datos">
+                <i class="fas fa-sync-alt" id="refresh-icon"></i>
+            </button>
+            <div class="w-8 h-8 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-500 border border-white/20">
+            </div>
             </div>
         </header>
 
@@ -176,9 +188,9 @@
                             class="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition transform group-hover:scale-110">
                             <i class="fas fa-calendar-check text-6xl text-indigo-400"></i>
                         </div>
-                        <p class="text-slate-400 text-xs font-bold uppercase tracking-widest mb-1">Total Leads</p>
+                        <p class="text-slate-400 text-xs font-bold uppercase tracking-widest mb-1">Total PAX</p>
                         <h3 class="text-3xl font-black text-white" id="kpi-leads">--</h3>
-                        <p class="text-indigo-400 text-[10px] font-bold mt-2">Registrados en Sheet</p>
+                        <p class="text-indigo-400 text-[10px] font-bold mt-2">Personas Registradas</p>
                     </div>
 
                     <div class="glass-panel p-5 rounded-2xl relative overflow-hidden group">
@@ -223,8 +235,7 @@
                     <!-- MAIN CHART -->
                     <div class="lg:col-span-2 glass-panel p-6 rounded-2xl flex flex-col">
                         <div class="flex justify-between items-center mb-6">
-                            <h3 class="font-bold text-sm text-slate-300 uppercase tracking-wide">Evolución de Leads
-                                (Últimos 30 días)</h3>
+                            <h3 class="font-bold text-sm text-slate-300 uppercase tracking-wide">Evolución de PAX</h3>
                             <select id="time-filter"
                                 class="bg-slate-800 border-none text-xs rounded-lg px-2 py-1 text-slate-300 outline-none">
                                 <option value="diario">Diario</option>
@@ -238,8 +249,7 @@
 
                     <!-- DONUT CHART -->
                     <div class="glass-panel p-6 rounded-2xl flex flex-col">
-                        <h3 class="font-bold text-sm text-slate-300 uppercase tracking-wide mb-6">Origen de Turistas
-                        </h3>
+                        <h3 class="font-bold text-sm text-slate-300 uppercase tracking-wide mb-6">Origen de PAX</h3>
                         <div class="flex-1 relative flex items-center justify-center">
                             <canvas id="chart-origin"></canvas>
                         </div>
@@ -328,7 +338,7 @@
                                     <th class="p-4 text-left">WhatsApp</th>
                                     <th class="p-4 text-left">Ciudad</th>
                                     <th class="p-4 text-left">Tour</th>
-                                    <th class="p-4 text-center">N° Pers.</th>
+                                    <th class="p-4 text-center">PAX</th>
                                     <th class="p-4 text-center">Estado</th>
                                     <th class="p-4 text-right">Monto</th>
                                 </tr>
@@ -463,8 +473,8 @@
                                     placeholder="Ex: 3">
                             </div>
                             <div class="space-y-2">
-                                <label class="text-[10px] font-bold text-indigo-400 uppercase tracking-widest pl-1">N°
-                                    Personas</label>
+                                <label
+                                    class="text-[10px] font-bold text-indigo-400 uppercase tracking-widest pl-1">PAX</label>
                                 <input type="number" name="numero_personas" min="1"
                                     class="w-full bg-slate-950/50 border border-slate-700 rounded-xl p-3 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none transition"
                                     placeholder="1">
@@ -798,190 +808,7 @@
         const SHEET_CSV_CIUDADES = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRBnkhcj5Gp9QMwMJmr1p1z6gcw3wShIC247dJ3V3qzwkEwkZEwJqroj3LIh826G4CaPBdZQAEIGoD0/pub?gid=127481278&single=true&output=csv';
         const WEBHOOK_URL = 'https://nonisotropic-ungrindable-kristie.ngrok-free.dev/webhook/update-dashboard'; // Public Tunnel URL for Netlify
 
-        // --- STATE ---
-        let state = {
-            contactos: [],
-            paquetes: [],
-            ciudades: [], // Added cities state
-            filteredContactos: [],
-            currentPage: 1,
-            rowsPerPage: 10,
-            loading: true
-        };
 
-        // --- CHART INSTANCES ---
-        let charts = {};
-
-        // --- INITIALIZATION ---
-        window.onload = async () => {
-            await Promise.all([
-                fetchData(SHEET_CSV_CONTACTOS, 'contactos'),
-                fetchData(SHEET_CSV_PAQUETES, 'paquetes'),
-                fetchData(SHEET_CSV_CIUDADES, 'ciudades')
-            ]);
-            initUI();
-            try {
-                setupTourInput();
-            } catch (e) {
-                console.error("Setup Tour Input Failed:", e);
-                // Continue execution even if tour input setup fails
-            }
-            updateDashboard();
-            try {
-                checkUrlForMagicLink();
-            } catch (e) {
-                console.error("Magic Link Failed:", e);
-                showToast("Error procesando enlace de cliente", "error");
-            }
-        };
-
-        // --- MAGIC LINK LOGIC ---
-        function checkUrlForMagicLink() {
-            const params = new URLSearchParams(window.location.search);
-            let phone = params.get('telefono');
-
-            if (phone) {
-                console.log("Magic Link detected for:", phone);
-
-                // Switch to leads view to ensure modal context is correct
-                switchView('leads');
-
-                // Normalize query phone: keep only last 9 digits to avoid +51/spaces issues
-                const cleanQuery = phone.replace(/\D/g, '').slice(-9);
-
-                const contact = state.contactos.find(c => {
-                    if (!c.Numero_whatsapp) return false;
-                    const cleanContact = c.Numero_whatsapp.replace(/\D/g, '').slice(-9);
-                    return cleanContact === cleanQuery;
-                });
-
-                if (contact) {
-                    showToast(`Cargando contacto: ${contact.Nombre}`, 'success');
-                    console.log("Contact match found:", contact);
-
-                    // Small delay to allow view transition
-                    setTimeout(() => {
-                        openContactModal(contact.ID);
-                        setTimeout(() => {
-                            enableEditMode();
-                        }, 300);
-                    }, 500);
-                } else {
-                    console.warn("No match found for", cleanQuery);
-                    showToast(`No se encontró cliente con celular: ${phone}`, 'error');
-                }
-            }
-        }
-
-        // --- DATA FETCHING ---
-        async function fetchData(url, key) {
-            return new Promise((resolve) => {
-                Papa.parse(url, {
-                    download: true,
-                    header: true,
-                    skipEmptyLines: true,
-                    complete: function (results) {
-                        state[key] = results.data;
-                        console.log(`Loaded ${key}:`, state[key].length);
-                        resolve();
-                    },
-                    error: function (err) {
-                        console.error(`Error loading ${key}`, err);
-                        showToast(`Error cargando ${key}`, 'error');
-                        resolve(); // Resolve anyway to not block UI
-                    }
-                });
-            });
-        }
-
-        async function refreshData() {
-            const btn = document.getElementById('refresh-icon');
-            btn.classList.add('animate-spin');
-            await Promise.all([fetchData(SHEET_CSV_CONTACTOS, 'contactos'), fetchData(SHEET_CSV_PAQUETES, 'paquetes')]);
-            updateDashboard();
-            btn.classList.remove('animate-spin');
-            showToast('Datos actualizados', 'success');
-        }
-
-        // --- UI LOGIC ---
-        function initUI() {
-            // Populate Tours Select - LEGACY REMOVED (Now using Multi-Select)
-            // const sel = document.getElementById('tour-select');
-            // if(sel) { ... }
-
-
-            // Populate Cities (Filter, Modal, Form)
-            const cityOptions = state.ciudades.map(c => c.ciudad).filter(c => c); // Extract city names
-            // Add 'Otro' if not present (optional, but good UX)
-            // User requested explicit list ending with Otro, assuming Sheet has it. If not, we can rely on Sheet.
-
-            const citySelects = ['filter-city', 'modal-ciudad', 'form-ciudad'];
-
-            citySelects.forEach(id => {
-                const el = document.getElementById(id);
-                if (!el) return;
-
-                // Determine default first option
-                let defaultTxt = (id === 'filter-city') ? 'Todas las Ciudades' : 'Selecciona Ciudad...';
-                let defaultVal = (id === 'filter-city') ? '' : '';
-
-                let html = `<option value="${defaultVal}" ${id !== 'filter-city' ? 'disabled selected' : ''}>${defaultTxt}</option>`;
-
-                cityOptions.forEach(city => {
-                    html += `<option value="${city}">${city}</option>`;
-                });
-
-                el.innerHTML = html;
-            });
-        }
-
-        function updateDashboard() {
-            updateKPIs();
-            renderCharts();
-            renderTablePreview();
-            applyFilters(); // Re-applies filters and (re)renders table
-        }
-
-        function updateKPIs() {
-            // 1. Ingresos (Last 30 Days)
-            const limitDate = new Date();
-            limitDate.setDate(limitDate.getDate() - 30);
-
-            const total = state.contactos.reduce((sum, c) => {
-                const regDate = c.Fecha_registro ? new Date(c.Fecha_registro.replace(' ', 'T')) : new Date(0); // Handle missing dates safe + ISO Fix
-                // Filter: Last 30 days AND NOT Cancelled
-                if (regDate >= limitDate && c.Estado_contacto !== 'Cancelado') {
-                    return sum + (parseFloat(c.Monto_cotizado) || 0);
-                }
-                return sum;
-            }, 0);
-            document.getElementById('kpi-ingresos').innerText = `S/ ${total.toLocaleString('es-PE', { minimumFractionDigits: 0 })}`;
-
-            // 2. Leads
-            document.getElementById('kpi-leads').innerText = state.contactos.length;
-
-            // 3. Top Package
-            const counts = {};
-            state.contactos.forEach(c => { if (c.Tour_interes) counts[c.Tour_interes] = (counts[c.Tour_interes] || 0) + 1; });
-            const topPkg = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
-            document.getElementById('kpi-top-package').innerText = topPkg ? topPkg[0] : 'N/A';
-
-            // 4. Top City
-            const cities = {};
-            state.contactos.forEach(c => {
-                let city = c.Ciudad_contacto || 'Desconocido';
-                cities[city] = (cities[city] || 0) + 1;
-            });
-            const topCity = Object.entries(cities).sort((a, b) => b[1] - a[1])[0];
-            document.getElementById('kpi-top-city').innerText = topCity ? topCity[0] : 'N/A';
-        }
-
-        function renderCharts() {
-            renderTimelineChart();
-            renderOriginChart();
-            renderPackagesChart();
-            renderForecastChart();
-        }
 
         function renderForecastChart() {
             const ctx = document.getElementById('chart-forecast').getContext('2d');
@@ -1034,7 +861,7 @@
                 const duration = parseInt(c.Duracion_dias_tour) || 1;
                 const endTour = new Date(startTour);
                 endTour.setDate(startTour.getDate() + duration);
-                const personas = parseInt(c.Numero_personas) || 1;
+                const personas = parseInt(c.PAX) || 1;
 
                 let hasData = false;
 
@@ -1135,25 +962,48 @@
             const ctx = document.getElementById('chart-timeline').getContext('2d');
             if (charts.timeline) charts.timeline.destroy();
 
-            // Group by date
+            const data = getAnalysisData();
             const grouped = {};
-            state.contactos.forEach(c => {
+            const isGeneral = state.periodFilter === 'general';
+
+            data.forEach(c => {
                 if (!c.Fecha_registro) return;
-                // Parse date assuming DD/MM/YYYY or YYYY-MM-DD
-                let d = c.Fecha_registro.split(' ')[0]; // Take only date part
-                grouped[d] = (grouped[d] || 0) + 1;
+                const dateObj = new Date(c.Fecha_registro);
+                const pax = parseInt(c.PAX) || 1;
+
+                let key;
+                if (isGeneral) {
+                    // Group by Month: "YYYY-MM"
+                    key = `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}`;
+                } else {
+                    // Group by Day: "YYYY-MM-DD" (Last 30 days)
+                    key = c.Fecha_registro.split(' ')[0];
+                }
+                grouped[key] = (grouped[key] || 0) + pax;
             });
 
-            // Sort dates
-            const labels = Object.keys(grouped).sort((a, b) => new Date(a) - new Date(b)).slice(-14); // Last 14 entries
-            const dataPts = labels.map(l => grouped[l]);
+            // Sort logic
+            const sortedKeys = Object.keys(grouped).sort();
+
+            // Format Labels
+            const labels = sortedKeys.map(k => {
+                if (isGeneral) {
+                    const [y, m] = k.split('-');
+                    const date = new Date(y, m - 1);
+                    return date.toLocaleDateString('es-ES', { month: 'short', year: 'numeric' });
+                } else {
+                    return k; // Already YYYY-MM-DD or similar, show as is or format "DD MMM"
+                }
+            });
+
+            const dataPts = sortedKeys.map(k => grouped[k]);
 
             charts.timeline = new Chart(ctx, {
                 type: 'line',
                 data: {
                     labels: labels,
                     datasets: [{
-                        label: 'Nuevos Leads',
+                        label: 'PAX Registrados',
                         data: dataPts,
                         borderColor: '#6366f1',
                         backgroundColor: 'rgba(99, 102, 241, 0.1)',
@@ -1171,7 +1021,7 @@
                         y: {
                             beginAtZero: true,
                             grid: { color: '#334155' },
-                            ticks: { stepSize: 1, precision: 0 } // Integers only
+                            ticks: { stepSize: 1, precision: 0 }
                         },
                         x: { grid: { display: false } }
                     }
@@ -1184,10 +1034,13 @@
             if (charts.origin) charts.origin.destroy();
 
             const cities = { 'Lima': 0, 'Huancayo': 0, 'Tingo María': 0, 'Otros': 0 };
-            state.contactos.forEach(c => {
+            const data = getAnalysisData();
+            data.forEach(c => {
                 let city = c.Ciudad_contacto ? c.Ciudad_contacto.trim() : 'Otros';
-                if (cities.hasOwnProperty(city)) cities[city]++;
-                else cities['Otros']++;
+                const pax = parseInt(c.PAX) || 1;
+
+                if (cities.hasOwnProperty(city)) cities[city] += pax;
+                else cities['Otros'] += pax;
             });
 
             charts.origin = new Chart(ctx, {
@@ -1214,15 +1067,16 @@
             if (charts.pkg) charts.pkg.destroy();
 
             const counts = {};
-            state.contactos.forEach(c => {
+            const data = getAnalysisData();
+            data.forEach(c => {
                 // Ignore Cancelled for stats
                 if (c.Estado_contacto === 'Cancelado') return;
 
                 let t = c.Tour_interes || 'Indefinido';
                 if (!t.trim()) t = 'Indefinido';
 
-                // WEIGHTED LOGIC: Sum 'Numero_personas' instead of counting rows
-                const personas = parseInt(c.Numero_personas) || 1; // Default to 1 if missing
+                // WEIGHTED LOGIC: Sum 'PAX' instead of counting rows
+                const personas = parseInt(c.PAX) || 1; // Default to 1 if missing
                 counts[t] = (counts[t] || 0) + personas;
             });
 
@@ -1509,8 +1363,11 @@
             statusSel.value = st;
             if (!statusSel.value) statusSel.value = 'Lead';
 
-            document.getElementById('modal-personas').value = c.Numero_personas || '';
+            document.getElementById('modal-personas').value = c.PAX || '';
             document.getElementById('modal-inicio-tour').value = c.Fecha_inicio_tour ? c.Fecha_inicio_tour.split('T')[0] : '';
+            // Restrict Date Picker
+            const today = new Date().toLocaleString('sv-SE', { timeZone: 'America/Lima' }).split(' ')[0];
+            document.getElementById('modal-inicio-tour').setAttribute('min', today);
             document.getElementById('modal-dias-tour').value = c.Duracion_dias_tour || '';
             document.getElementById('modal-dni').value = c.DNI || '';
             document.getElementById('modal-embarque').value = c.Punto_embarque || '';
@@ -1600,7 +1457,7 @@
                 Tour_interes: currentTours.join(', '),
                 Estado_contacto: document.getElementById('modal-estado').value,
                 DNI: document.getElementById('modal-dni').value,
-                Numero_personas: document.getElementById('modal-personas').value,
+                PAX: document.getElementById('modal-personas').value,
                 Fecha_inicio_tour: document.getElementById('modal-inicio-tour').value,
                 Duracion_dias_tour: document.getElementById('modal-dias-tour').value,
                 Punto_embarque: document.getElementById('modal-embarque').value,
@@ -1643,7 +1500,7 @@
                     Tour_interes: updated.Tour_interes,
                     Estado_contacto: updated.Estado_contacto,
                     DNI: updated.DNI,
-                    Numero_personas: updated.Numero_personas,
+                    PAX: updated.PAX,
                     Fecha_inicio_tour: updated.Fecha_inicio_tour,
                     Duracion_dias_tour: updated.Duracion_dias_tour,
                     Punto_embarque: updated.Punto_embarque,
@@ -1705,6 +1562,211 @@
         // --- FILTER & PAGINATION ---
 
         // --- FILTER & PAGINATION ---
+        // --- STATE ---
+        const state = {
+            contactos: [],
+            paquetes: [],
+            filteredContactos: [],
+            rowsPerPage: 10,
+            currentPage: 1,
+            dateFilter: null,
+            periodFilter: '30_days' // '30_days' or 'general'
+        };
+
+        const charts = {
+            forecast: null,
+            timeline: null,
+            origin: null,
+            pkg: null
+        };
+
+        // --- INIT ---
+        document.addEventListener('DOMContentLoaded', initUI);
+
+        function initUI() {
+            setupTourInput();
+            fetchData();
+        }
+
+        async function fetchData() {
+            try {
+                const [contactosRes, packagesRes, citiesRes] = await Promise.all([
+                    fetch(SHEET_CSV_CONTACTOS),
+                    fetch(SHEET_CSV_PAQUETES),
+                    fetch(SHEET_CSV_CIUDADES)
+                ]);
+
+                if (!contactosRes.ok) throw new Error("Error loading Contacts CSV");
+
+                const contactosText = await contactosRes.text();
+                const packagesText = await packagesRes.text();
+                const citiesText = await citiesRes.text();
+
+                Papa.parse(contactosText, {
+                    header: true,
+                    skipEmptyLines: true,
+                    complete: function (results) {
+                        state.contactos = results.data.map(fixContactData);
+                        state.filteredContactos = [...state.contactos];
+                        updateDashboard();
+                        try { checkUrlForMagicLink(); } catch (e) { console.error(e); }
+                    }
+                });
+
+                Papa.parse(packagesText, {
+                    header: true,
+                    skipEmptyLines: true,
+                    complete: function (results) { state.paquetes = results.data; }
+                });
+
+                Papa.parse(citiesText, {
+                    header: true,
+                    skipEmptyLines: true,
+                    complete: function (results) {
+                        const cities = results.data.map(r => r.Ciudad).sort();
+                        populateCityDropdowns(cities);
+                    }
+                });
+
+            } catch (error) {
+                console.error("Error fetching data:", error);
+                showToast("Error de conexión con Google Sheets", "error");
+            }
+        }
+
+        function fixContactData(c) {
+            if (!c.ID) c.ID = `TMP-${Math.random().toString(36).substr(2, 6)}`;
+            return c;
+        }
+
+        function populateCityDropdowns(cities) {
+            const filterSel = document.getElementById('filter-city');
+            const formSel = document.getElementById('form-ciudad');
+            const modalSel = document.getElementById('modal-ciudad');
+
+            // Keep "All" option for filter
+            const opts = cities.map(city => `<option value="${city}">${city}</option>`).join('');
+
+            if (filterSel) filterSel.innerHTML = '<option value="">Todas las ciudades</option>' + opts;
+            if (formSel) formSel.innerHTML = '<option value="" disabled selected>Selecciona ciudad...</option>' + opts;
+            if (modalSel) modalSel.innerHTML = '<option value="">Selecciona ciudad...</option>' + opts;
+        }
+
+        /* --- GLOBAL FILTER LOGIC --- */
+        function getAnalysisData() {
+            if (state.periodFilter === 'general') {
+                return state.contactos;
+            } else {
+                // 30 Days
+                const cutoff = new Date();
+                cutoff.setDate(cutoff.getDate() - 30);
+                return state.contactos.filter(c => {
+                    if (!c.Fecha_registro) return false;
+                    const parts = c.Fecha_registro.split(' ')[0].split('-');
+                    // Assuming YYYY-MM-DD or similar standard parseable
+                    const d = new Date(c.Fecha_registro);
+                    return d >= cutoff;
+                });
+            }
+        }
+
+        function setPeriodFilter(period) {
+            state.periodFilter = period;
+
+            // Validate & UI Update
+            const btn30 = document.getElementById('btn-filter-30');
+            const btnGen = document.getElementById('btn-filter-general');
+
+            if (btn30 && btnGen) {
+                if (period === '30_days') {
+                    btn30.className = "px-3 py-1 rounded-md text-xs font-bold transition bg-indigo-500 text-white shadow-lg";
+                    btnGen.className = "px-3 py-1 rounded-md text-xs font-bold transition text-slate-400 hover:text-white hover:bg-slate-700";
+                } else {
+                    btn30.className = "px-3 py-1 rounded-md text-xs font-bold transition text-slate-400 hover:text-white hover:bg-slate-700";
+                    btnGen.className = "px-3 py-1 rounded-md text-xs font-bold transition bg-indigo-500 text-white shadow-lg";
+                }
+            }
+            updateDashboard();
+        }
+
+        function updateDashboard() {
+            renderKPIs();
+            renderForecastChart();
+            if (window.renderTimelineChart) renderTimelineChart();
+            if (window.renderOriginChart) renderOriginChart();
+            renderPackagesChart();
+            applyFilters();
+        }
+
+        function renderKPIs() {
+            const data = getAnalysisData();
+            // Sum of PAX
+            const totalPAX = data.reduce((sum, c) => sum + (parseInt(c.PAX) || 1), 0);
+
+            // Revenue (Monto_cotizado)
+            const ingresos = data.reduce((a, b) => a + (parseFloat(b.Monto_cotizado) || 0), 0);
+
+            document.getElementById('kpi-leads').innerText = totalPAX;
+            document.getElementById('kpi-ingresos').innerText = `S/ ${ingresos.toLocaleString('es-PE')}`;
+
+            // Top Package (Weighted by PAX)
+            const pkgCounts = {};
+            data.forEach(c => {
+                const t = c.Tour_interes || 'Indefinido';
+                const pax = parseInt(c.PAX) || 1;
+                pkgCounts[t] = (pkgCounts[t] || 0) + pax;
+            });
+            const topPkg = Object.entries(pkgCounts).sort((a, b) => b[1] - a[1])[0];
+            document.getElementById('kpi-top-package').innerText = topPkg ? (topPkg[0].length > 15 ? topPkg[0].substring(0, 15) + '...' : topPkg[0]) : '-';
+
+            // Top City (Weighted by PAX)
+            const cityCounts = {};
+            data.forEach(c => {
+                const t = c.Ciudad_contacto || 'Desconocido';
+                const pax = parseInt(c.PAX) || 1;
+                cityCounts[t] = (cityCounts[t] || 0) + pax;
+            });
+            const topCity = Object.entries(cityCounts).sort((a, b) => b[1] - a[1])[0];
+            document.getElementById('kpi-top-city').innerText = topCity ? topCity[0] : '-';
+        }
+
+        function refreshData() {
+            const icon = document.getElementById('refresh-icon');
+            if (icon) icon.classList.add('fa-spin');
+            fetchData().then(() => {
+                if (icon) setTimeout(() => icon.classList.remove('fa-spin'), 1000);
+                showToast('Datos actualizados');
+            });
+        }
+
+        // --- MAGIC LINK LOGIC ---
+        function checkUrlForMagicLink() {
+            const params = new URLSearchParams(window.location.search);
+            let phone = params.get('telefono');
+
+            if (phone) {
+                console.log("Magic Link detected for:", phone);
+                switchView('leads');
+                const cleanQuery = phone.replace(/\D/g, '').slice(-9);
+
+                const contact = state.contactos.find(c => {
+                    if (!c.Numero_whatsapp) return false;
+                    const cleanContact = c.Numero_whatsapp.replace(/\D/g, '').slice(-9);
+                    return cleanContact === cleanQuery;
+                });
+
+                if (contact) {
+                    showToast(`Cargando contacto: ${contact.Nombre}`, 'success');
+                    setTimeout(() => {
+                        openContactModal(contact.ID);
+                        setTimeout(() => enableEditMode(), 300);
+                    }, 500);
+                } else {
+                    showToast(`No se encontró cliente con celular: ${phone}`, 'error');
+                }
+            }
+        }
+
         function applyFilters() {
             const search = document.getElementById('table-search').value.toLowerCase();
             const fStatus = document.getElementById('filter-status').value.toLowerCase();
@@ -1802,7 +1864,7 @@
                 const wsp = c.Numero_whatsapp ? c.Numero_whatsapp.replace("'", "") : '-';
                 const city = c.Ciudad_contacto || '-';
                 const tour = c.Tour_interes || '-';
-                const personas = c.Numero_personas || '-';
+                const personas = c.PAX || '-';
                 const status = c.Estado_contacto || 'Nuevo';
                 const amount = c.Monto_cotizado ? `S/ ${parseFloat(c.Monto_cotizado).toFixed(2)}` : '-';
 
@@ -1942,7 +2004,7 @@
                 Punto_embarque: (formData.get('punto_embarque') || '').trim(),
                 Fecha_registro: now,
                 Fecha_ultimo_contacto: now,
-                Numero_personas: (formData.get('numero_personas') || '').trim(),
+                PAX: (formData.get('numero_personas') || '').trim(),
                 Fecha_inicio_tour: formData.get('fecha_inicio_tour'),
                 Duracion_dias_tour: formData.get('duracion_dias_tour'),
                 Monto_cotizado: montoStr,
