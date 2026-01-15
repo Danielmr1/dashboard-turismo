@@ -24,6 +24,7 @@
     </script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <script src="temp_forecast.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;900&display=swap"
         rel="stylesheet">
@@ -1043,6 +1044,7 @@
             renderTimelineChart();
             renderOriginChart();
             renderPackagesChart();
+            renderForecastChart();
         }
 
 
@@ -1275,164 +1277,7 @@
             });
         }
 
-        function renderForecastChart() {
-            const ctxWrapper = document.getElementById('chart-forecast');
-            if (!ctxWrapper) {
-                console.error("Forecast Canvas Not Found");
-                return;
-            }
-            const ctx = ctxWrapper.getContext('2d');
-            if (charts.forecast) charts.forecast.destroy();
 
-            // 1. Time Window: Yesterday (-1) to +5
-            const labels = [];
-            const dates = [];
-            const today = new Date();
-            today.setHours(0, 0, 0, 0); // Normalize Today
-
-            for (let i = -1; i < 6; i++) {
-                const d = new Date(today);
-                d.setDate(today.getDate() + i);
-                dates.push(d);
-
-                const dow = d.toLocaleDateString('es-ES', { weekday: 'short' });
-                const dayNum = d.getDate();
-
-                if (i === 0) labels.push(`HOY ${dow} ${dayNum}`);
-                else if (i === -1) labels.push(`AYER ${dow} ${dayNum}`);
-                else labels.push(`${dow} ${dayNum}`);
-            }
-
-            // 2. Identify Active Tourists (Datasets)
-            const activeContacts = [];
-
-            // Debug Log
-            // console.log("Rendering Forecast. Total contacts:", state.contactos.length);
-
-            const palette = {
-                'Lima': '#e11d48',
-                'Tingo María': '#10b981', // emerald-500
-                'Huánuco': '#d97706', // amber-600
-                'Selva Central': '#8b5cf6', // violet-500
-                'Oxapampa': '#0ea5e9',   // sky-500
-                'Ayacucho': '#f43f5e',
-                'Huacho': '#14b8a6',
-                'Otro': '#64748b' // slate-500
-            };
-            const defaultColor = '#64748b';
-
-            state.contactos.forEach(c => {
-                const status = (c.Estado_contacto || '').trim();
-                if (status === 'Cancelado') return;
-                if (!c.Fecha_inicio_tour) return;
-
-                const start = new Date(c.Fecha_inicio_tour.replace(/-/g, '/'));
-                if (isNaN(start.getTime())) return;
-
-                activeContacts.push(c);
-            });
-
-            // console.log("Active Forecast Contacts:", activeContacts.length);
-
-            const datasets = activeContacts.map(c => {
-                const city = (c.Ciudad_contacto || 'Otro').trim();
-                const color = palette[city] || (palette[Object.keys(palette).find(k => city.includes(k))] || defaultColor);
-
-                const data = dates.map(date => {
-                    const start = new Date(c.Fecha_inicio_tour.replace(/-/g, '/'));
-                    start.setHours(0, 0, 0, 0);
-
-                    const duration = parseInt(c.Duracion_dias_tour) || 1;
-                    const end = new Date(start);
-                    end.setDate(start.getDate() + duration);
-                    // end is exclusive boundary in typical loops, but here we want inclusive days
-                    // [Start, End) logic usually works if we compare: date >= start && date < end
-                    // If duration 1: Start 15, End 16. Window 15 is >=15 and <16. OK.
-
-                    // Compare Timestamps to avoid timezone issues
-                    const dTime = date.getTime();
-                    const sTime = start.getTime();
-                    const eTime = end.getTime();
-
-                    if (dTime >= sTime && dTime < eTime) {
-                        return 1; // 1 Box per Person
-                    }
-                    return 0;
-                });
-
-                if (data.every(v => v === 0)) return null;
-
-                return {
-                    label: city,
-                    data: data,
-                    backgroundColor: color,
-                    stack: 'combined',
-                    guestName: c.Nombre,
-                    guestWsp: c.Numero_whatsapp,
-                    guestPax: c.PAX
-                };
-            }).filter(ds => ds !== null);
-
-            // console.log("Forecast Datasets:", datasets.length);
-
-            charts.forecast = new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: labels,
-                    datasets: datasets
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            position: 'top',
-                            labels: {
-                                color: '#cbd5e1',
-                                font: { size: 10 },
-                                boxWidth: 10,
-                                filter: function (item, chart) {
-                                    const label = item.text;
-                                    const datasets = chart.data.datasets;
-                                    const index = datasets.findIndex(ds => ds.label === label);
-                                    return item.datasetIndex === index;
-                                }
-                            }
-                        },
-                        tooltip: {
-                            callbacks: {
-                                title: (items) => {
-                                    if (items.length > 0) return items[0].dataset.guestName;
-                                    return '';
-                                },
-                                label: (context) => {
-                                    const ds = context.dataset;
-                                    return ` WSP: ${ds.guestWsp} (PAX: ${ds.guestPax || 1})`;
-                                }
-                            }
-                        }
-                    },
-                    scales: {
-                        y: {
-                            stacked: true,
-                            beginAtZero: true,
-                            grid: { color: '#334155' },
-                            ticks: { stepSize: 1, precision: 0 }
-                        },
-                        x: {
-                            stacked: true,
-                            grid: { display: false },
-                            ticks: { color: '#94a3b8', font: { size: 11 } }
-                        }
-                    },
-                    interaction: {
-                        mode: 'nearest',
-                        axis: 'x',
-                        intersect: false
-                    }
-                }
-            });
-        }
 
 
 
