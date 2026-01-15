@@ -1809,9 +1809,9 @@
                         </td>
 
                         <!-- Tour -->
-                        <td class="block md:table-cell p-3 md:p-4 text-slate-400 text-xs truncate max-w-[150px] border-b border-slate-800/50 md:border-none flex justify-between items-center">
+                        <td class="block md:table-cell p-3 md:p-4 text-slate-400 text-xs md:truncate md:max-w-[150px] border-b border-slate-800/50 md:border-none flex justify-between items-center">
                             <span class="md:hidden font-bold uppercase tracking-wider text-[10px] text-slate-600">Tour</span>
-                            <span>${tour}</span>
+                            <span class="text-right">${tour}</span>
                         </td>
 
                         <!-- Estado -->
@@ -2058,6 +2058,12 @@
 
             document.getElementById('view-' + viewName).classList.remove('hidden');
             document.getElementById('page-title').innerText = viewName === 'overview' ? 'Dashboard' : (viewName === 'form' ? 'Nuevo Contacto' : 'Base de Datos');
+
+            // Auto-close sidebar on mobile
+            const overlay = document.getElementById('sidebar-overlay');
+            if (!overlay.classList.contains('hidden')) {
+                toggleSidebar();
+            }
         }
 
         function showToast(msg, type = 'success') {
