@@ -92,15 +92,23 @@
 
 <body class="bg-slate-950 text-slate-200 h-screen flex overflow-hidden selection:bg-indigo-500 selection:text-white">
 
+    <!-- MOBILE OVERLAY -->
+    <div id="sidebar-overlay" onclick="toggleSidebar()"
+        class="fixed inset-0 bg-slate-950/80 z-40 hidden lg:hidden backdrop-blur-sm transition-opacity opacity-0"></div>
+
     <!-- SIDEBAR -->
-    <aside
-        class="w-20 lg:w-64 bg-slate-900 border-r border-slate-800 flex flex-col shrink-0 transition-all duration-300">
-        <div class="h-16 flex items-center justify-center lg:justify-start lg:px-6 border-b border-slate-800">
+    <aside id="sidebar"
+        class="fixed inset-y-0 left-0 z-50 w-64 bg-slate-900 border-r border-slate-800 flex flex-col transform -translate-x-full transition-transform duration-300 lg:translate-x-0 lg:static lg:inset-auto lg:flex shrink-0 shadow-2xl lg:shadow-none">
+        <div class="h-16 flex items-center justify-start px-6 border-b border-slate-800 relative">
+            <!-- Close Button Mobile -->
+            <button onclick="toggleSidebar()" class="absolute right-4 lg:hidden text-slate-400 hover:text-white">
+                <i class="fas fa-times"></i>
+            </button>
             <div
                 class="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white font-black text-lg shadow-lg shadow-indigo-500/20">
                 <i class="fas fa-mountain"></i>
             </div>
-            <span class="ml-3 font-bold text-lg hidden lg:block tracking-tight text-white">TURISMO<span
+            <span class="ml-3 font-bold text-lg tracking-tight text-white">TURISMO<span
                     class="text-indigo-400">DATA</span></span>
         </div>
 
@@ -108,18 +116,18 @@
             <a href="#" onclick="switchView('overview')" id="nav-overview"
                 class="sidebar-link active flex items-center gap-4 px-3 py-3 rounded-xl text-slate-400 hover:text-indigo-400 group">
                 <i class="fas fa-chart-pie text-xl w-6 text-center group-hover:scale-110 transition"></i>
-                <span class="font-medium text-sm hidden lg:block">Visión General</span>
+                <span class="font-medium text-sm">Visión General</span>
             </a>
             <a href="#" onclick="switchView('leads')" id="nav-leads"
                 class="sidebar-link flex items-center gap-4 px-3 py-3 rounded-xl text-slate-400 hover:text-indigo-400 group">
                 <i class="fas fa-users text-xl w-6 text-center group-hover:scale-110 transition"></i>
-                <span class="font-medium text-sm hidden lg:block">Base de Contactos</span>
+                <span class="font-medium text-sm">Base de Contactos</span>
             </a>
             <a href="#" onclick="switchView('form')" id="nav-form"
                 class="sidebar-link flex items-center gap-4 px-3 py-3 rounded-xl text-slate-400 hover:text-emerald-400 group">
                 <i
                     class="fas fa-plus-circle text-xl w-6 text-center group-hover:scale-110 transition text-emerald-500"></i>
-                <span class="font-medium text-sm hidden lg:block text-emerald-400">Nuevo Contacto</span>
+                <span class="font-medium text-sm text-emerald-400">Nuevo Contacto</span>
             </a>
         </nav>
 
@@ -127,7 +135,7 @@
             <div id="status-pill"
                 class="flex items-center justify-center lg:justify-start gap-2 py-2 px-3 bg-slate-800/50 rounded-lg text-xs font-mono text-emerald-400">
                 <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                <span class="hidden lg:block uppercase tracking-wider font-bold">Conectado</span>
+                <span class="uppercase tracking-wider font-bold">Conectado</span>
             </div>
         </div>
     </aside>
@@ -138,7 +146,8 @@
         <header
             class="bg-slate-900/50 backdrop-blur-md border-b border-slate-700/50 p-4 lg:px-8 flex justify-between items-center sticky top-0 z-40">
             <div class="flex items-center gap-4">
-                <button id="mobile-menu-btn" class="lg:hidden text-slate-400 hover:text-white transition">
+                <button id="mobile-menu-btn" onclick="toggleSidebar()"
+                    class="lg:hidden text-slate-400 hover:text-white transition">
                     <i class="fas fa-bars text-xl"></i>
                 </button>
                 <h2 class="text-xl font-bold text-white tracking-tight">Dashboard</h2>
@@ -2012,6 +2021,25 @@
 
             showToast(`Descargados ${data.length} registros`, 'success');
             closeExportModal();
+        }
+
+        // --- MOBILE SIDEBAR TOGGLE ---
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('sidebar-overlay');
+
+            // Toggle Translate Class
+            sidebar.classList.toggle('-translate-x-full');
+
+            // Toggle Overlay
+            if (overlay.classList.contains('hidden')) {
+                overlay.classList.remove('hidden');
+                // Small delay to allow transition
+                requestAnimationFrame(() => overlay.classList.remove('opacity-0'));
+            } else {
+                overlay.classList.add('opacity-0');
+                setTimeout(() => overlay.classList.add('hidden'), 300);
+            }
         }
 
         // --- NAVIGATION & UTILS ---
