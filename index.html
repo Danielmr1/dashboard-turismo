@@ -2102,6 +2102,18 @@
             document.getElementById('view-' + viewName).classList.remove('hidden');
             document.getElementById('page-title').innerText = viewName === 'overview' ? 'Dashboard' : (viewName === 'form' ? 'Nuevo Contacto' : 'Base de Datos');
 
+            // Toggle Global Filter Visibility (Only for Overview)
+            const globalFilter = document.getElementById('global-date-filter');
+            if (globalFilter) {
+                if (viewName === 'overview') {
+                    globalFilter.classList.remove('hidden');
+                    globalFilter.classList.add('md:flex');
+                } else {
+                    globalFilter.classList.add('hidden');
+                    globalFilter.classList.remove('md:flex');
+                }
+            }
+
             // Auto-close sidebar on mobile
             const overlay = document.getElementById('sidebar-overlay');
             // Check actual visibility or screen width to be safe
