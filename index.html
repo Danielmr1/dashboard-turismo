@@ -2077,8 +2077,8 @@
             const today = new Date();
             today.setHours(0, 0, 0, 0); // Inicio del día
 
-            // Rango: HOY hasta HOY+6
-            for (let i = 0; i < 7; i++) {
+            // Rango: HOY hasta HOY+4 (5 días)
+            for (let i = 0; i < 5; i++) {
                 const d = new Date(today);
                 d.setDate(today.getDate() + i);
                 dates.push(d);
@@ -2127,7 +2127,7 @@
 
                 // Ventana del forecast
                 const windowStart = dates[0];
-                const windowEnd = new Date(dates[6]);
+                const windowEnd = new Date(dates[4]);
                 windowEnd.setDate(windowEnd.getDate() + 1);
 
                 // Verificar solapamiento
@@ -2222,7 +2222,7 @@
                             beginAtZero: true,
                             grid: { color: '#334155' },
                             ticks: { stepSize: 1, precision: 0, color: '#94a3b8' },
-                            title: { display: true, text: 'Personas (PAX)', color: '#64748b' }
+                            title: { display: true, text: 'PAX', color: '#64748b' }
                         },
                         x: {
                             stacked: true,
