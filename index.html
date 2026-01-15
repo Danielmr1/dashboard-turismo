@@ -1021,9 +1021,22 @@
 
             // 3. Top Package
             const counts = {};
-            data.forEach(c => { // Weight by PAX? Or Frequency? Usually Frequency for "Most Requested". Let's use Frequency for now.
-                let t = c.Tour_interes || 'Indefinido';
-                counts[t] = (counts[t] || 0) + 1;
+            data.forEach(c => {
+                if (c.Estado_contacto === 'Cancelado') return;
+
+                let rawTours = c.Tour_interes || '';
+                if (!rawTours.trim()) return; // Ignore empty
+
+                // Split logic
+                const tourList = rawTours.split(',').map(t => t.trim()).filter(t => t);
+                if (tourList.length === 0) return;
+
+                // Weight by PAX to match Chart logic consistency
+                const pax = parseInt(c.PAX) || 1;
+
+                tourList.forEach(t => {
+                    counts[t] = (counts[t] || 0) + pax;
+                });
             });
             const topPkg = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
             document.getElementById('kpi-top-package').innerText = topPkg ? topPkg[0] : 'N/A';
