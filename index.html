@@ -1183,12 +1183,17 @@
             data.forEach(c => {
                 if (c.Estado_contacto === 'Cancelado') return;
 
-                let t = c.Tour_interes || 'Indefinido';
-                if (!t.trim()) t = 'Indefinido';
+                let rawTours = c.Tour_interes || 'Indefinido';
+                if (!rawTours.trim()) rawTours = 'Indefinido';
 
-                // PAX weighted
+                // Split by comma to handle multiple tours (e.g., "Trilogia, Maravilla")
+                const tourList = rawTours.split(',').map(t => t.trim()).filter(t => t);
+
                 const pax = parseInt(c.PAX) || 1;
-                counts[t] = (counts[t] || 0) + pax;
+
+                tourList.forEach(t => {
+                    counts[t] = (counts[t] || 0) + pax;
+                });
             });
 
             const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 5);
