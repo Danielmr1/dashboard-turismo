@@ -854,20 +854,27 @@
             let phone = params.get('telefono');
 
             if (phone) {
-                console.log(`Magic Link detected for: ${phone} (Attempt ${retryCount + 1})`);
-
-                // Retry if data is not loaded yet
-                if ((!state.contactos || state.contactos.length === 0) && retryCount < 5) {
-                    console.log("Contacts not loaded yet, retrying in 1s...");
-                    setTimeout(() => checkUrlForMagicLink(retryCount + 1), 1000);
-                    return;
-                }
-
-                // Switch to leads view to ensure modal context is correct
+                // Switch to leads view immediately
                 switchView('leads');
 
-                // Normalize query phone: keep only last 9 digits to avoid +51/spaces issues
+                // Normalize query phone
                 const cleanQuery = phone.replace(/\D/g, '').slice(-9);
+                console.log(`Magic Link: ${cleanQuery} (Attempt ${retryCount + 1})`);
+
+                // If data not loaded, show waiting toast and retry
+                if ((!state.contactos || state.contactos.length === 0)) {
+                    // Show scanning toast on first attempt
+                    if (retryCount === 0) showToast(`Buscando cliente ${cleanQuery}...`, 'info');
+
+                    if (retryCount < 10) { // Retry for 10 seconds
+                        console.log("Contacts not loaded yet, retrying in 1s...");
+                        setTimeout(() => checkUrlForMagicLink(retryCount + 1), 1000);
+                        return;
+                    } else {
+                        showToast("Error: No se pudieron cargar los contactos.", "error");
+                        return;
+                    }
+                }
 
                 const contact = state.contactos.find(c => {
                     if (!c.Numero_whatsapp) return false;
@@ -876,7 +883,7 @@
                 });
 
                 if (contact) {
-                    showToast(`Cargando contacto: ${contact.Nombre}`, 'success');
+                    showToast(`Cliente encontrado: ${contact.Nombre}`, 'success');
                     console.log("Contact match found:", contact);
 
                     // Small delay to allow view transition
@@ -894,7 +901,7 @@
                     console.warn("No match found for", cleanQuery);
                     // Only show error if we have data and really couldn't find it
                     if (state.contactos.length > 0) {
-                        showToast(`No se encontró cliente con celular: ${phone}`, 'error');
+                        showToast(`No se encontró cliente con celular: ${cleanQuery}`, 'error');
                     }
                 }
             }
