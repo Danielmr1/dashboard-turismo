@@ -24,7 +24,6 @@
     </script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
-    <script src="temp_forecast.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;900&display=swap"
         rel="stylesheet">
@@ -2027,6 +2026,196 @@
                 el.classList.add('translate-y-10', 'opacity-0');
                 setTimeout(() => el.remove(), 300);
             }, 3000);
+        }
+
+        // --- FORECAST CHART LOGIC (INLINED) ---
+        function renderForecastChart() {
+            // SECURITY: Ensure 'charts' variable is accessible.
+            let chartRegistry;
+            if (typeof charts !== 'undefined') {
+                chartRegistry = charts;
+            } else if (window.charts) {
+                chartRegistry = window.charts;
+            } else {
+                console.error("Critical: 'charts' object not found in global scope.");
+                return;
+            }
+
+            const ctxWrapper = document.getElementById('chart-forecast');
+            if (!ctxWrapper) return;
+
+            if (chartRegistry.forecast) chartRegistry.forecast.destroy();
+
+            const ctx = ctxWrapper.getContext('2d');
+
+            // --- 1. Generar Ventana de 7 Días ---
+            const labels = [];
+            const dates = [];
+            const today = new Date();
+            today.setHours(0, 0, 0, 0); // Inicio del día
+
+            // Rango: HOY hasta HOY+6
+            for (let i = 0; i < 7; i++) {
+                const d = new Date(today);
+                d.setDate(today.getDate() + i);
+                dates.push(d);
+
+                const dow = d.toLocaleDateString('es-ES', { weekday: 'short' });
+                const dayNum = d.getDate();
+                labels.push(`${dow} ${dayNum}`);
+            }
+
+            // --- 2. Color Generator (Dynamic Hash) ---
+            const getTourColor = (tourName) => {
+                if (!tourName) return '#94a3b8'; // Slate default
+
+                let hash = 0;
+                for (let i = 0; i < tourName.length; i++) {
+                    hash = tourName.charCodeAt(i) + ((hash << 5) - hash);
+                }
+
+                const h = Math.abs(hash % 360);
+                return `hsl(${h}, 70%, 55%)`;
+            };
+
+            const datasets = [];
+
+            // Validar estado
+            let globalState;
+            if (typeof state !== 'undefined') globalState = state;
+            else if (window.state) globalState = window.state;
+            else return;
+
+            if (!globalState || !globalState.contactos) return;
+
+            globalState.contactos.forEach(c => {
+                // Filtro Básico
+                if (c.Estado_contacto === 'Cancelado' || !c.Fecha_inicio_tour) return;
+
+                // Parsear Fechas (YYYY-MM-DD)
+                const startParts = c.Fecha_inicio_tour.split('-');
+                if (startParts.length !== 3) return;
+
+                const startDate = new Date(startParts[0], startParts[1] - 1, startParts[2]);
+                const duration = parseInt(c.Duracion_dias_tour) || 1;
+
+                const endDate = new Date(startDate);
+                endDate.setDate(endDate.getDate() + duration);
+
+                // Ventana del forecast
+                const windowStart = dates[0];
+                const windowEnd = new Date(dates[6]);
+                windowEnd.setDate(windowEnd.getDate() + 1);
+
+                // Verificar solapamiento
+                if (endDate <= windowStart || startDate >= windowEnd) return;
+
+                // Generar Array de Datos (7 días)
+                let hasActivity = false;
+                const paxData = dates.map(date => {
+                    const dTime = date.getTime();
+                    const sTime = startDate.getTime();
+                    const eTime = endDate.getTime();
+
+                    if (dTime >= sTime && dTime < eTime) {
+                        hasActivity = true;
+                        return parseInt(c.PAX) || 1;
+                    }
+                    return 0;
+                });
+
+                if (!hasActivity) return;
+
+                // Determinar Color y Label
+                const tourName = c.Tour_interes || 'General';
+                const color = getTourColor(tourName);
+
+                // Crear Dataset Individual
+                datasets.push({
+                    label: tourName,
+                    data: paxData,
+                    backgroundColor: color,
+                    hoverBackgroundColor: color.replace('55%)', '65%)'),
+                    borderRadius: 4,
+                    stack: 'stack1',
+                    barPercentage: 0.6,
+                    guestName: c.Nombre,
+                    guestWsp: c.Numero_whatsapp,
+                    guestPax: parseInt(c.PAX) || 1
+                });
+            });
+
+            // --- 3. Renderizar Gráfico ---
+            chartRegistry.forecast = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: datasets
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                            align: 'start',
+                            labels: {
+                                color: '#cbd5e1',
+                                font: { size: 10 },
+                                boxWidth: 10,
+                                usePointStyle: true,
+                                filter: function (item, chartData) {
+                                    const label = item.text;
+                                    const firstIndex = chartData.datasets.findIndex(ds => ds.label === label);
+                                    return item.datasetIndex === firstIndex;
+                                }
+                            }
+                        },
+                        tooltip: {
+                            mode: 'nearest',
+                            intersect: true,
+                            backgroundColor: 'rgba(15, 23, 42, 0.9)',
+                            titleColor: '#f1f5f9',
+                            bodyColor: '#cbd5e1',
+                            borderColor: '#334155',
+                            borderWidth: 1,
+                            callbacks: {
+                                title: (items) => {
+                                    if (items.length > 0) {
+                                        return items[0].dataset.guestName;
+                                    }
+                                    return '';
+                                },
+                                label: (context) => {
+                                    const ds = context.dataset;
+                                    return ` ${ds.label} (PAX: ${ds.guestPax})`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            stacked: true,
+                            beginAtZero: true,
+                            grid: { color: '#334155' },
+                            ticks: { stepSize: 1, precision: 0, color: '#94a3b8' },
+                            title: { display: true, text: 'Personas (PAX)', color: '#64748b' }
+                        },
+                        x: {
+                            stacked: true,
+                            grid: { display: false },
+                            ticks: { color: '#94a3b8', font: { size: 11 } }
+                        }
+                    },
+                    interaction: {
+                        mode: 'nearest',
+                        axis: 'x',
+                        intersect: true
+                    }
+                }
+            });
+
+            console.log(`Forecast Rendered: ${datasets.length} active tourists.`);
         }
     </script>
 </body>
