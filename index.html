@@ -1183,11 +1183,14 @@
             data.forEach(c => {
                 if (c.Estado_contacto === 'Cancelado') return;
 
-                let rawTours = c.Tour_interes || 'Indefinido';
-                if (!rawTours.trim()) rawTours = 'Indefinido';
+                let rawTours = c.Tour_interes || '';
+                // FILTER: Ignore empty tours (Leads)
+                if (!rawTours.trim()) return;
 
                 // Split by comma to handle multiple tours (e.g., "Trilogia, Maravilla")
                 const tourList = rawTours.split(',').map(t => t.trim()).filter(t => t);
+
+                if (tourList.length === 0) return;
 
                 const pax = parseInt(c.PAX) || 1;
 
