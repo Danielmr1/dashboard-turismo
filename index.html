@@ -876,10 +876,24 @@
                     }
                 }
 
+                // DEBUG: Show what columns we actually have (in console)
+                if (retryCount === 0 && state.contactos.length > 0) {
+                    const keys = Object.keys(state.contactos[0]).join(', ');
+                    console.log("CSV Headers:", keys);
+                }
+
                 const contact = state.contactos.find(c => {
-                    if (!c.Numero_whatsapp) return false;
-                    const cleanContact = c.Numero_whatsapp.replace(/\D/g, '').slice(-9);
-                    return cleanContact === cleanQuery;
+                    // Prioritize specific column if exists
+                    if (c.Numero_whatsapp) {
+                        const clean = c.Numero_whatsapp.replace(/\D/g, '').slice(-9);
+                        if (clean === cleanQuery) return true;
+                    }
+                    // Fallback to searching all values (in case column name differs)
+                    return Object.values(c).some(val => {
+                        if (typeof val !== 'string') return false;
+                        const cleanVal = val.replace(/\D/g, '').slice(-9);
+                        return cleanVal === cleanQuery && cleanVal.length === 9;
+                    });
                 });
 
                 if (contact) {
