@@ -171,9 +171,6 @@
                     title="Actualizar Datos">
                     <i class="fas fa-sync-alt" id="refresh-icon"></i>
                 </button>
-                <div
-                    class="w-8 h-8 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-500 shadow-lg shadow-indigo-500/20">
-                </div>
             </div>
         </header>
 
@@ -1716,6 +1713,11 @@
                 const cityMatch = !fCity || (c.Ciudad_contacto || '').toLowerCase() === fCity;
 
                 return textMatch && statusMatch && cityMatch;
+            }).sort((a, b) => {
+                // Default Sort: Newest First (Desc ID)
+                const idA = parseInt((a.ID || '0').replace(/\D/g, ''));
+                const idB = parseInt((b.ID || '0').replace(/\D/g, ''));
+                return idB - idA;
             });
 
             // Reset to Page 1 on filter change
