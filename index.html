@@ -1448,7 +1448,10 @@
             );
 
             if (filtered.length === 0 && filterText.trim() !== '') {
-                dropdownEl.innerHTML = `<div class="px-4 py-2 text-xs text-slate-400 italic">Presiona Enter para agregar "${filterText}"</div>`;
+                const action = isForm ? `addFormTour('${filterText}')` : `addTour('${filterText}')`;
+                dropdownEl.innerHTML = `<div class="px-4 py-2 text-xs text-indigo-400 italic cursor-pointer hover:bg-slate-800" onclick="${action}">
+                    <i class="fas fa-plus-circle mr-1"></i> Agregar "${filterText}"
+                </div>`;
             }
 
             filtered.forEach(tour => {
@@ -2061,7 +2064,8 @@
 
             // Auto-close sidebar on mobile
             const overlay = document.getElementById('sidebar-overlay');
-            if (!overlay.classList.contains('hidden')) {
+            // Check actual visibility or screen width to be safe
+            if (window.innerWidth < 1024 && !overlay.classList.contains('hidden')) {
                 toggleSidebar();
             }
         }
