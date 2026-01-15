@@ -849,12 +849,19 @@
         };
 
         // --- MAGIC LINK LOGIC ---
-        function checkUrlForMagicLink() {
+        async function checkUrlForMagicLink(retryCount = 0) {
             const params = new URLSearchParams(window.location.search);
             let phone = params.get('telefono');
 
             if (phone) {
-                console.log("Magic Link detected for:", phone);
+                console.log(`Magic Link detected for: ${phone} (Attempt ${retryCount + 1})`);
+
+                // Retry if data is not loaded yet
+                if ((!state.contactos || state.contactos.length === 0) && retryCount < 5) {
+                    console.log("Contacts not loaded yet, retrying in 1s...");
+                    setTimeout(() => checkUrlForMagicLink(retryCount + 1), 1000);
+                    return;
+                }
 
                 // Switch to leads view to ensure modal context is correct
                 switchView('leads');
@@ -870,18 +877,25 @@
 
                 if (contact) {
                     showToast(`Cargando contacto: ${contact.Nombre}`, 'success');
-                    console.log("Contact match fou nd:", contact);
+                    console.log("Contact match found:", contact);
 
                     // Small delay to allow view transition
                     setTimeout(() => {
                         openContactModal(contact.ID);
+                        // Clean URL after successful open to prevent re-opening on refresh
+                        const newUrl = window.location.protocol + "//" + window.location.host + window.location.pathname;
+                        window.history.replaceState({ path: newUrl }, '', newUrl);
+
                         setTimeout(() => {
                             enableEditMode();
                         }, 300);
                     }, 500);
                 } else {
                     console.warn("No match found for", cleanQuery);
-                    showToast(`No se encontró cliente con celular: ${phone}`, 'error');
+                    // Only show error if we have data and really couldn't find it
+                    if (state.contactos.length > 0) {
+                        showToast(`No se encontró cliente con celular: ${phone}`, 'error');
+                    }
                 }
             }
         }
