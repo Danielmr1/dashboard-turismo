@@ -976,9 +976,25 @@
             }).filter(c => c && c.trim() !== '');
 
             // Remove duplicates and sort
-            const uniqueCities = [...new Set(cityOptions)].sort();
+            const uniqueCities = [...new Set(cityOptions)];
 
-            console.log("Parsed Unique Cities:", uniqueCities);
+            // Priority Cities
+            const priority = ['Lima', 'Huancayo', 'Tingo María'];
+
+            uniqueCities.sort((a, b) => {
+                const idxA = priority.indexOf(a);
+                const idxB = priority.indexOf(b);
+
+                // If both are priority, sort by priority index
+                if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+                // If one is priority, it comes first
+                if (idxA !== -1) return -1;
+                if (idxB !== -1) return 1;
+                // Otherwise alpha sort
+                return a.localeCompare(b);
+            });
+
+            console.log("Parsed Unique Cities (Sorted):", uniqueCities);
 
             const citySelects = ['filter-city', 'modal-ciudad', 'form-ciudad'];
 
