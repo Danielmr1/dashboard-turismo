@@ -1602,7 +1602,8 @@
 
         // --- EDIT MODE LOGIC ---
         function enableEditMode() {
-            document.getElementById('modal-btns-edit').classList.remove('hidden');
+            document.getElementById('modal-btns-view').classList.add('hidden'); // Hide View Buttons (Close, Edit, Contact)
+            document.getElementById('modal-btns-edit').classList.remove('hidden'); // Show Edit Buttons (Cancel, Save)
 
             const inputs = ['modal-nombre', 'modal-whatsapp', 'modal-ciudad', 'tour-input', 'modal-estado', 'modal-dni', 'modal-embarque', 'modal-monto', 'modal-notas', 'modal-personas', 'modal-dias-tour', 'modal-inicio-tour'];
             inputs.forEach(id => {
@@ -1616,7 +1617,8 @@
         }
 
         function disableEditMode() {
-            document.getElementById('modal-btns-edit').classList.add('hidden');
+            document.getElementById('modal-btns-view').classList.remove('hidden'); // Show View Buttons
+            document.getElementById('modal-btns-edit').classList.add('hidden'); // Hide Edit Buttons
 
             const inputs = ['modal-nombre', 'modal-whatsapp', 'modal-ciudad', 'tour-input', 'modal-estado', 'modal-dni', 'modal-embarque', 'modal-monto', 'modal-notas', 'modal-personas', 'modal-dias-tour', 'modal-inicio-tour'];
             inputs.forEach(id => {
