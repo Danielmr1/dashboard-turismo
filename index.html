@@ -1099,7 +1099,7 @@
             data.forEach(c => {
                 const pax = parseInt(c.PAX) || 1;
                 opportunity += pax;
-                if (c.Estado_contacto === 'Turista') {
+                if (c.Estado_contacto === 'Turista' || c.Estado_contacto === 'Completado') {
                     tourists += pax;
                 }
             });
@@ -1127,9 +1127,12 @@
             const topPkg = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
             document.getElementById('kpi-top-package').innerText = topPkg ? topPkg[0] : 'N/A';
 
-            // 4. Top City
+            // 4. Top City (Origen Principal) -> FILTERED
             const cities = {};
             data.forEach(c => {
+                // FILTER: Only Turista or Completado
+                if (c.Estado_contacto !== 'Turista' && c.Estado_contacto !== 'Completado') return;
+
                 let city = c.Ciudad_contacto || 'Desconocido';
                 cities[city] = (cities[city] || 0) + (parseInt(c.PAX) || 1); // Weight by PAX for "Most Affluence"
             });
@@ -1240,32 +1243,51 @@
             const ctx = ctxWrapper.getContext('2d');
             if (charts.origin) charts.origin.destroy();
 
-            const cities = { 'Lima': 0, 'Huancayo': 0, 'Tingo María': 0, 'Otros': 0 };
+            const cities = {};
             const data = getAnalysisData(); // Use Filtered Data
 
-            data.forEach(c => {
-                let city = c.Ciudad_contacto ? c.Ciudad_contacto.trim() : 'Otros';
-                const pax = parseInt(c.PAX) || 1;
+            // Generate distinct colors dynamically
+            const colors = [
+                '#f43f5e', '#8b5cf6', '#10b981', '#f59e0b', '#3b82f6',
+                '#ec4899', '#6366f1', '#14b8a6', '#84cc16', '#64748b',
+                '#a855f7', '#06b6d4', '#22c55e', '#eab308', '#f97316'
+            ];
 
-                if (cities.hasOwnProperty(city)) cities[city] += pax;
-                else cities['Otros'] += pax;
+            data.forEach(c => {
+                // FILTER: Only Turista or Completado
+                if (c.Estado_contacto !== 'Turista' && c.Estado_contacto !== 'Completado') return;
+
+                let city = c.Ciudad_contacto ? c.Ciudad_contacto.trim() : 'Desconocido';
+                if (!city) city = 'Desconocido';
+
+                const pax = parseInt(c.PAX) || 1;
+                cities[city] = (cities[city] || 0) + pax;
             });
+
+            const labels = Object.keys(cities);
+            const values = Object.values(cities);
+
+            // Assign colors cyclically
+            const bgColors = labels.map((_, i) => colors[i % colors.length]);
 
             charts.origin = new Chart(ctx, {
                 type: 'doughnut',
                 data: {
-                    labels: Object.keys(cities),
+                    labels: labels,
                     datasets: [{
-                        data: Object.values(cities),
-                        backgroundColor: ['#f43f5e', '#8b5cf6', '#10b981', '#64748b'],
+                        data: values,
+                        backgroundColor: bgColors,
                         borderWidth: 0
                     }]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    plugins: { legend: { position: 'top', labels: { color: '#cbd5e1' } } },
-                    cutout: '70%'
+                    plugins: {
+                        legend: { position: 'right', labels: { color: '#cbd5e1', font: { size: 10 }, boxWidth: 10 } }
+                    },
+                    cutout: '70%',
+                    layout: { padding: 0 }
                 }
             });
         }
