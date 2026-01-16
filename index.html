@@ -151,7 +151,7 @@
                     <i class="fas fa-bars text-xl"></i>
                 </button>
                 <h2 id="page-title" class="text-xl font-bold text-white tracking-tight">Dashboard <span
-                        class="text-xs text-indigo-400 font-normal">(v3.0-restored)</span></h2>
+                        class="text-xs text-indigo-400 font-normal">(v3.3-stable)</span></h2>
             </div>
 
             <!-- GLOBAL DATE FILTER (Overview Only) -->
@@ -839,11 +839,11 @@
                 fetchData(SHEET_CSV_CIUDADES, 'ciudades')
             ]).then(() => {
                 console.log("All data loaded.");
+                initUI(); // MOVED HERE: Only init UI when data is ready
                 updateDashboard();
             });
 
-            // 2. Initialize UI mechanisms immediately
-            initUI();
+            // 2. Initialize UI mechanisms immediately - REMOVED from here to avoid race condition
             try {
                 setupTourInput();
             } catch (e) {
@@ -947,888 +947,918 @@
         }
 
         async function refreshData() {
-            async function refreshData() {
-                const btn = document.getElementById('refresh-icon');
-                btn.classList.add('animate-spin');
-                await Promise.all([fetchData(SHEET_CSV_CONTACTOS, 'contactos'), fetchData(SHEET_CSV_PAQUETES, 'paquetes')]);
-                updateDashboard();
-                btn.classList.remove('animate-spin');
-                showToast('Datos actualizados', 'success');
-            }
+            const btn = document.getElementById('refresh-icon');
+            btn.classList.add('animate-spin');
 
-            // --- UI LOGIC ---
-            function initUI() {
-                // Populate Tours Select - LEGACY REMOVED (Now using Multi-Select)
-                // const sel = document.getElementById('tour-select');
-                // if(sel) { ... }
+            // Fix: Include Cities in refresh
+            await Promise.all([
+                fetchData(SHEET_CSV_CONTACTOS, 'contactos'),
+                fetchData(SHEET_CSV_PAQUETES, 'paquetes'),
+                fetchData(SHEET_CSV_CIUDADES, 'ciudades')
+            ]);
 
+            // Re-init UI to populate selects with potentially new cities
+            initUI();
 
-                // Populate Cities (Filter, Modal, Form)
-                const cityOptions = state.ciudades.map(c => c.ciudad).filter(c => c); // Extract city names
-                // Add 'Otro' if not present (optional, but good UX)
-                // User requested explicit list ending with Otro, assuming Sheet has it. If not, we can rely on Sheet.
+            updateDashboard();
+            btn.classList.remove('animate-spin');
+            showToast('Datos actualizados', 'success');
+        }
 
-                const citySelects = ['filter-city', 'modal-ciudad', 'form-ciudad'];
+        // --- UI LOGIC ---
+        function initUI() {
+            console.log("Initializing UI with Cities:", state.ciudades ? state.ciudades.length : 0);
 
-                citySelects.forEach(id => {
-                    const el = document.getElementById(id);
-                    if (!el) return;
+            if (!state.ciudades) return; // Safety check
 
-                    // Determine default first option
-                    let defaultTxt = (id === 'filter-city') ? 'Todas las Ciudades' : 'Selecciona Ciudad...';
-                    let defaultVal = (id === 'filter-city') ? '' : '';
+            // Populate Cities (Filter, Modal, Form)
+            // Robust extraction: Check for 'ciudad', 'Ciudad', 'CIUDAD'
+            const cityOptions = state.ciudades.map(c => {
+                return c.ciudad || c.Ciudad || c.CIUDAD || '';
+            }).filter(c => c && c.trim() !== '');
 
-                    let html = `<option value="${defaultVal}" ${id !== 'filter-city' ? 'disabled selected' : ''}>${defaultTxt}</option>`;
+            // Remove duplicates and sort
+            const uniqueCities = [...new Set(cityOptions)].sort();
 
-                    cityOptions.forEach(city => {
-                        html += `<option value="${city}">${city}</option>`;
-                    });
+            console.log("Parsed Unique Cities:", uniqueCities);
 
-                    el.innerHTML = html;
+            const citySelects = ['filter-city', 'modal-ciudad', 'form-ciudad'];
+
+            citySelects.forEach(id => {
+                const el = document.getElementById(id);
+                if (!el) return;
+
+                // Determine default first option
+                let defaultTxt = (id === 'filter-city') ? 'Todas las Ciudades' : 'Selecciona Ciudad...';
+                let defaultVal = (id === 'filter-city') ? '' : '';
+
+                // Keep existing selection if any (for refreshes)
+                const currentVal = el.value;
+
+                let html = `<option value="${defaultVal}" ${id !== 'filter-city' ? 'disabled' : ''}>${defaultTxt}</option>`;
+
+                uniqueCities.forEach(city => {
+                    html += `<option value="${city}">${city}</option>`;
                 });
-            }
 
-            function updateDashboard() {
-                // Show/Hide Global Filter based on View
-                const filterDiv = document.getElementById('global-date-filter');
-                const overview = document.getElementById('view-overview');
-                if (filterDiv && overview) {
-                    if (!overview.classList.contains('hidden')) filterDiv.classList.remove('hidden', 'md:flex'); // Restore flex
-                    else filterDiv.classList.add('hidden');
+                // Add 'Otro' if not present
+                if (!uniqueCities.includes('Otro')) {
+                    html += `<option value="Otro">Otro</option>`;
                 }
 
-                updateKPIs();
-                renderCharts();
-                renderTablePreview();
-                applyFilters();
+                el.innerHTML = html;
+
+                // Restore selection if sensible
+                if (currentVal && (uniqueCities.includes(currentVal) || currentVal === 'Otro')) {
+                    el.value = currentVal;
+                } else if (id !== 'filter-city') {
+                    // Ensure modal select placeholder is selected if value is invalid
+                    el.value = defaultVal;
+                }
+            });
+        }
+
+        function updateDashboard() {
+            // Show/Hide Global Filter based on View
+            const filterDiv = document.getElementById('global-date-filter');
+            const overview = document.getElementById('view-overview');
+            if (filterDiv && overview) {
+                if (!overview.classList.contains('hidden')) filterDiv.classList.remove('hidden', 'md:flex'); // Restore flex
+                else filterDiv.classList.add('hidden');
             }
 
-            // --- GLOBAL FILTER LOGIC ---
-            function setGlobalFilter(mode) {
-                state.globalFilter = mode;
+            updateKPIs();
+            renderCharts();
+            renderTablePreview();
+            applyFilters();
+        }
 
-                // Visual Update
-                const btn30 = document.getElementById('btn-filter-30d');
-                const btnGen = document.getElementById('btn-filter-general');
+        // --- GLOBAL FILTER LOGIC ---
+        function setGlobalFilter(mode) {
+            state.globalFilter = mode;
 
-                if (mode === '30d') {
-                    btn30.className = 'px-3 py-1 text-xs font-bold rounded-md transition bg-indigo-600 text-white shadow-lg';
-                    btnGen.className = 'px-3 py-1 text-xs font-bold rounded-md transition text-slate-400 hover:text-white hover:bg-slate-700';
+            // Visual Update
+            const btn30 = document.getElementById('btn-filter-30d');
+            const btnGen = document.getElementById('btn-filter-general');
+
+            if (mode === '30d') {
+                btn30.className = 'px-3 py-1 text-xs font-bold rounded-md transition bg-indigo-600 text-white shadow-lg';
+                btnGen.className = 'px-3 py-1 text-xs font-bold rounded-md transition text-slate-400 hover:text-white hover:bg-slate-700';
+            } else {
+                btnGen.className = 'px-3 py-1 text-xs font-bold rounded-md transition bg-indigo-600 text-white shadow-lg';
+                btn30.className = 'px-3 py-1 text-xs font-bold rounded-md transition text-slate-400 hover:text-white hover:bg-slate-700';
+            }
+
+            updateDashboard();
+        }
+
+        function getAnalysisData() {
+            if (state.globalFilter === 'general') return state.contactos;
+
+            // 30 Days Logic
+            const limit = new Date();
+            limit.setDate(limit.getDate() - 30);
+            limit.setHours(0, 0, 0, 0);
+
+            return state.contactos.filter(c => {
+                const d = c.Fecha_registro ? new Date(c.Fecha_registro.replace(/-/g, '/')) : new Date(0);
+                return d >= limit;
+            });
+        }
+
+        function updateKPIs() {
+            const data = getAnalysisData();
+
+            // 1. Ingresos (Estimated) - Sum of visible data
+            const total = data.reduce((sum, c) => {
+                if (c.Estado_contacto !== 'Cancelado') {
+                    return sum + (parseFloat(c.Monto_cotizado) || 0);
+                }
+                return sum;
+            }, 0);
+            document.getElementById('kpi-ingresos').innerText = `S/ ${total.toLocaleString('es-PE', { minimumFractionDigits: 0 })}`;
+
+            // 2. Turistas / Oportunidad
+            let tourists = 0;
+            let opportunity = 0;
+
+            data.forEach(c => {
+                const pax = parseInt(c.PAX) || 1;
+                opportunity += pax;
+                if (c.Estado_contacto === 'Turista') {
+                    tourists += pax;
+                }
+            });
+            document.getElementById('kpi-leads').innerText = `${tourists} / ${opportunity}`;
+
+            // 3. Top Package
+            const counts = {};
+            data.forEach(c => {
+                if (c.Estado_contacto === 'Cancelado') return;
+
+                let rawTours = c.Tour_interes || '';
+                if (!rawTours.trim()) return; // Ignore empty
+
+                // Split logic
+                const tourList = rawTours.split(',').map(t => t.trim()).filter(t => t);
+                if (tourList.length === 0) return;
+
+                // Weight by PAX to match Chart logic consistency
+                const pax = parseInt(c.PAX) || 1;
+
+                tourList.forEach(t => {
+                    counts[t] = (counts[t] || 0) + pax;
+                });
+            });
+            const topPkg = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
+            document.getElementById('kpi-top-package').innerText = topPkg ? topPkg[0] : 'N/A';
+
+            // 4. Top City
+            const cities = {};
+            data.forEach(c => {
+                let city = c.Ciudad_contacto || 'Desconocido';
+                cities[city] = (cities[city] || 0) + (parseInt(c.PAX) || 1); // Weight by PAX for "Most Affluence"
+            });
+            const topCity = Object.entries(cities).sort((a, b) => b[1] - a[1])[0];
+            document.getElementById('kpi-top-city').innerText = topCity ? topCity[0] : 'N/A';
+        }
+
+        function renderCharts() {
+            renderTimelineChart();
+            renderOriginChart();
+            renderPackagesChart();
+            renderForecastChart();
+        }
+
+
+
+        function renderTimelineChart() {
+            const ctxWrapper = document.getElementById('chart-timeline');
+            if (!ctxWrapper) return;
+            const ctx = ctxWrapper.getContext('2d');
+            if (charts.timeline) charts.timeline.destroy();
+
+            const isGeneral = state.globalFilter === 'general';
+            const data = getAnalysisData();
+            const grouped = {};
+
+            // Update Chart Title based on Filter
+            // Note: Canvas doesn't change title, but we can change the DOM element if we want.
+            // For now, let's just make sure the data is right.
+
+            data.forEach(c => {
+                if (!c.Fecha_registro) return;
+                // Parse date
+                let d = c.Fecha_registro.split(' ')[0]; // YYYY-MM-DD
+
+                let key;
+                if (isGeneral) {
+                    // YYYY-MM
+                    const parts = d.split('-');
+                    if (parts.length >= 2) key = `${parts[0]}-${parts[1]}`;
+                    else key = d;
                 } else {
-                    btnGen.className = 'px-3 py-1 text-xs font-bold rounded-md transition bg-indigo-600 text-white shadow-lg';
-                    btn30.className = 'px-3 py-1 text-xs font-bold rounded-md transition text-slate-400 hover:text-white hover:bg-slate-700';
+                    key = d; // Daily
                 }
 
-                updateDashboard();
-            }
+                const pax = parseInt(c.PAX) || 1;
+                grouped[key] = (grouped[key] || 0) + pax;
+            });
 
-            function getAnalysisData() {
-                if (state.globalFilter === 'general') return state.contactos;
+            // Sort dates strictly by key (YYYY-MM-DD or YYYY-MM) to ensure chronological order
+            const allKeys = Object.keys(grouped).sort();
 
-                // 30 Days Logic
-                const limit = new Date();
-                limit.setDate(limit.getDate() - 30);
-                limit.setHours(0, 0, 0, 0);
+            // Generate Display Labels (Remove Year)
+            // If Key is YYYY-MM-DD -> MM-DD
+            // If Key is YYYY-MM -> MM
+            const displayLabels = allKeys.map(k => {
+                const parts = k.split('-');
+                if (parts.length === 3) return `${parts[1]}-${parts[2]}`; // MM-DD
+                if (parts.length === 2) return `${parts[1]}`; // MM (Monthly view)
+                return k;
+            });
 
-                return state.contactos.filter(c => {
-                    const d = c.Fecha_registro ? new Date(c.Fecha_registro.replace(/-/g, '/')) : new Date(0);
-                    return d >= limit;
-                });
-            }
+            const datasetsData = allKeys.map(k => grouped[k]);
 
-            function updateKPIs() {
-                const data = getAnalysisData();
-
-                // 1. Ingresos (Estimated) - Sum of visible data
-                const total = data.reduce((sum, c) => {
-                    if (c.Estado_contacto !== 'Cancelado') {
-                        return sum + (parseFloat(c.Monto_cotizado) || 0);
-                    }
-                    return sum;
-                }, 0);
-                document.getElementById('kpi-ingresos').innerText = `S/ ${total.toLocaleString('es-PE', { minimumFractionDigits: 0 })}`;
-
-                // 2. Turistas / Oportunidad
-                let tourists = 0;
-                let opportunity = 0;
-
-                data.forEach(c => {
-                    const pax = parseInt(c.PAX) || 1;
-                    opportunity += pax;
-                    if (c.Estado_contacto === 'Turista') {
-                        tourists += pax;
-                    }
-                });
-                document.getElementById('kpi-leads').innerText = `${tourists} / ${opportunity}`;
-
-                // 3. Top Package
-                const counts = {};
-                data.forEach(c => {
-                    if (c.Estado_contacto === 'Cancelado') return;
-
-                    let rawTours = c.Tour_interes || '';
-                    if (!rawTours.trim()) return; // Ignore empty
-
-                    // Split logic
-                    const tourList = rawTours.split(',').map(t => t.trim()).filter(t => t);
-                    if (tourList.length === 0) return;
-
-                    // Weight by PAX to match Chart logic consistency
-                    const pax = parseInt(c.PAX) || 1;
-
-                    tourList.forEach(t => {
-                        counts[t] = (counts[t] || 0) + pax;
-                    });
-                });
-                const topPkg = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
-                document.getElementById('kpi-top-package').innerText = topPkg ? topPkg[0] : 'N/A';
-
-                // 4. Top City
-                const cities = {};
-                data.forEach(c => {
-                    let city = c.Ciudad_contacto || 'Desconocido';
-                    cities[city] = (cities[city] || 0) + (parseInt(c.PAX) || 1); // Weight by PAX for "Most Affluence"
-                });
-                const topCity = Object.entries(cities).sort((a, b) => b[1] - a[1])[0];
-                document.getElementById('kpi-top-city').innerText = topCity ? topCity[0] : 'N/A';
-            }
-
-            function renderCharts() {
-                renderTimelineChart();
-                renderOriginChart();
-                renderPackagesChart();
-                renderForecastChart();
-            }
-
-
-
-            function renderTimelineChart() {
-                const ctxWrapper = document.getElementById('chart-timeline');
-                if (!ctxWrapper) return;
-                const ctx = ctxWrapper.getContext('2d');
-                if (charts.timeline) charts.timeline.destroy();
-
-                const isGeneral = state.globalFilter === 'general';
-                const data = getAnalysisData();
-                const grouped = {};
-
-                // Update Chart Title based on Filter
-                // Note: Canvas doesn't change title, but we can change the DOM element if we want.
-                // For now, let's just make sure the data is right.
-
-                data.forEach(c => {
-                    if (!c.Fecha_registro) return;
-                    // Parse date
-                    let d = c.Fecha_registro.split(' ')[0]; // YYYY-MM-DD
-
-                    let key;
-                    if (isGeneral) {
-                        // YYYY-MM
-                        const parts = d.split('-');
-                        if (parts.length >= 2) key = `${parts[0]}-${parts[1]}`;
-                        else key = d;
-                    } else {
-                        key = d; // Daily
-                    }
-
-                    const pax = parseInt(c.PAX) || 1;
-                    grouped[key] = (grouped[key] || 0) + pax;
-                });
-
-                // Sort dates strictly by key (YYYY-MM-DD or YYYY-MM) to ensure chronological order
-                const allKeys = Object.keys(grouped).sort();
-
-                // Generate Display Labels (Remove Year)
-                // If Key is YYYY-MM-DD -> MM-DD
-                // If Key is YYYY-MM -> MM
-                const displayLabels = allKeys.map(k => {
-                    const parts = k.split('-');
-                    if (parts.length === 3) return `${parts[1]}-${parts[2]}`; // MM-DD
-                    if (parts.length === 2) return `${parts[1]}`; // MM (Monthly view)
-                    return k;
-                });
-
-                const datasetsData = allKeys.map(k => grouped[k]);
-
-                charts.timeline = new Chart(ctx, {
-                    type: 'line',
-                    data: {
-                        labels: displayLabels, // Use formatted labels
-                        datasets: [{
-                            label: 'PAX',
-                            data: datasetsData,
-                            borderColor: '#6366f1',
-                            backgroundColor: 'rgba(99, 102, 241, 0.1)',
-                            fill: true,
-                            tension: 0.4,
-                            pointRadius: 4,
-                            pointHoverRadius: 6
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: {
-                            legend: { display: false },
-                            tooltip: {
-                                callbacks: {
-                                    label: function (context) {
-                                        return `PAX: ${context.raw}`;
-                                    }
+            charts.timeline = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: displayLabels, // Use formatted labels
+                    datasets: [{
+                        label: 'PAX',
+                        data: datasetsData,
+                        borderColor: '#6366f1',
+                        backgroundColor: 'rgba(99, 102, 241, 0.1)',
+                        fill: true,
+                        tension: 0.4,
+                        pointRadius: 4,
+                        pointHoverRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: function (context) {
+                                    return `PAX: ${context.raw}`;
                                 }
                             }
-                        },
-                        scales: {
-                            y: {
-                                beginAtZero: true,
-                                grid: { color: '#334155' },
-                                ticks: { stepSize: 1, precision: 0 }
-                            },
-                            x: { grid: { display: false }, ticks: { color: '#94a3b8' } }
                         }
-                    }
-                });
-            }
-
-            function renderOriginChart() {
-                const ctxWrapper = document.getElementById('chart-origin');
-                if (!ctxWrapper) return;
-                const ctx = ctxWrapper.getContext('2d');
-                if (charts.origin) charts.origin.destroy();
-
-                const cities = { 'Lima': 0, 'Huancayo': 0, 'Tingo María': 0, 'Otros': 0 };
-                const data = getAnalysisData(); // Use Filtered Data
-
-                data.forEach(c => {
-                    let city = c.Ciudad_contacto ? c.Ciudad_contacto.trim() : 'Otros';
-                    const pax = parseInt(c.PAX) || 1;
-
-                    if (cities.hasOwnProperty(city)) cities[city] += pax;
-                    else cities['Otros'] += pax;
-                });
-
-                charts.origin = new Chart(ctx, {
-                    type: 'doughnut',
-                    data: {
-                        labels: Object.keys(cities),
-                        datasets: [{
-                            data: Object.values(cities),
-                            backgroundColor: ['#f43f5e', '#8b5cf6', '#10b981', '#64748b'],
-                            borderWidth: 0
-                        }]
                     },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: { legend: { position: 'top', labels: { color: '#cbd5e1' } } },
-                        cutout: '70%'
-                    }
-                });
-            }
-
-            function renderPackagesChart() {
-                const ctxWrapper = document.getElementById('chart-packages');
-                if (!ctxWrapper) return;
-                const ctx = ctxWrapper.getContext('2d');
-                if (charts.pkg) charts.pkg.destroy();
-
-                const counts = {};
-                const data = getAnalysisData(); // Use Global Filter
-
-                data.forEach(c => {
-                    if (c.Estado_contacto === 'Cancelado') return;
-
-                    let rawTours = c.Tour_interes || '';
-                    // FILTER: Ignore empty tours (Leads)
-                    if (!rawTours.trim()) return;
-
-                    // Split by comma to handle multiple tours (e.g., "Trilogia, Maravilla")
-                    const tourList = rawTours.split(',').map(t => t.trim()).filter(t => t);
-
-                    if (tourList.length === 0) return;
-
-                    const pax = parseInt(c.PAX) || 1;
-
-                    tourList.forEach(t => {
-                        counts[t] = (counts[t] || 0) + pax;
-                    });
-                });
-
-                const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 5);
-
-                // Polar Area Colors
-                const polarColors = [
-                    'hsla(250, 70%, 65%, 0.7)',
-                    'hsla(190, 80%, 60%, 0.7)',
-                    'hsla(320, 70%, 60%, 0.7)',
-                    'hsla(40, 90%, 60%, 0.7)',
-                    'hsla(150, 60%, 50%, 0.7)'
-                ];
-                const polarBorders = [
-                    'hsla(250, 70%, 50%, 1)',
-                    'hsla(190, 80%, 45%, 1)',
-                    'hsla(320, 70%, 45%, 1)',
-                    'hsla(40, 90%, 45%, 1)',
-                    'hsla(150, 60%, 35%, 1)'
-                ];
-
-                charts.pkg = new Chart(ctx, {
-                    type: 'polarArea', // RESTORED POLAR AREA
-                    data: {
-                        labels: sorted.map(i => i[0].length > 15 ? i[0].substring(0, 15) + '...' : i[0]),
-                        datasets: [{
-                            label: 'PAX',
-                            data: sorted.map(i => i[1]),
-                            backgroundColor: polarColors,
-                            borderColor: polarBorders,
-                            borderWidth: 1
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: {
-                            legend: { position: 'top', labels: { color: '#cbd5e1', font: { size: 10 } } },
-                            tooltip: {
-                                callbacks: {
-                                    label: function (context) {
-                                        return ` ${context.label}: ${context.raw} PAX`;
-                                    }
-                                }
-                            }
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: { color: '#334155' },
+                            ticks: { stepSize: 1, precision: 0 }
                         },
-                        scales: {
-                            r: {
-                                grid: { color: '#334155' },
-                                ticks: { display: false, backdropColor: 'transparent' },
-                                pointLabels: { display: false }
-                            }
-                        }
+                        x: { grid: { display: false }, ticks: { color: '#94a3b8' } }
                     }
-                });
-            }
-
-            function renderTablePreview() {
-                const tbody = document.getElementById('table-preview-body');
-                tbody.innerHTML = '';
-
-                // Filter: Only 'Reserva' or 'Turista' (Case Insensitive)
-                const valid = state.contactos.filter(c => {
-                    const status = (c.Estado_contacto || '').trim().toLowerCase();
-                    return status === 'reserva' || status === 'turista';
-                });
-
-                // Sort by ID descending (Latest first)
-                const sorted = valid.sort((a, b) => {
-                    const idA = parseInt((a.ID || '0').replace(/\D/g, ''));
-                    const idB = parseInt((b.ID || '0').replace(/\D/g, ''));
-                    return idB - idA;
-                });
-
-                const last5 = sorted.slice(0, 5);
-
-                if (last5.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="3" class="text-center text-xs text-slate-500 py-4">No hay reservas recientes</td></tr>';
                 }
+            });
+        }
 
-                last5.forEach(c => {
-                    // Stack Tours Logic
-                    const tours = (c.Tour_interes || '-').split(',').map(t => t.trim()).join('<br>');
+        function renderOriginChart() {
+            const ctxWrapper = document.getElementById('chart-origin');
+            if (!ctxWrapper) return;
+            const ctx = ctxWrapper.getContext('2d');
+            if (charts.origin) charts.origin.destroy();
 
-                    tbody.innerHTML += `
+            const cities = { 'Lima': 0, 'Huancayo': 0, 'Tingo María': 0, 'Otros': 0 };
+            const data = getAnalysisData(); // Use Filtered Data
+
+            data.forEach(c => {
+                let city = c.Ciudad_contacto ? c.Ciudad_contacto.trim() : 'Otros';
+                const pax = parseInt(c.PAX) || 1;
+
+                if (cities.hasOwnProperty(city)) cities[city] += pax;
+                else cities['Otros'] += pax;
+            });
+
+            charts.origin = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: Object.keys(cities),
+                    datasets: [{
+                        data: Object.values(cities),
+                        backgroundColor: ['#f43f5e', '#8b5cf6', '#10b981', '#64748b'],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: 'top', labels: { color: '#cbd5e1' } } },
+                    cutout: '70%'
+                }
+            });
+        }
+
+        function renderPackagesChart() {
+            const ctxWrapper = document.getElementById('chart-packages');
+            if (!ctxWrapper) return;
+            const ctx = ctxWrapper.getContext('2d');
+            if (charts.pkg) charts.pkg.destroy();
+
+            const counts = {};
+            const data = getAnalysisData(); // Use Global Filter
+
+            data.forEach(c => {
+                if (c.Estado_contacto === 'Cancelado') return;
+
+                let rawTours = c.Tour_interes || '';
+                // FILTER: Ignore empty tours (Leads)
+                if (!rawTours.trim()) return;
+
+                // Split by comma to handle multiple tours (e.g., "Trilogia, Maravilla")
+                const tourList = rawTours.split(',').map(t => t.trim()).filter(t => t);
+
+                if (tourList.length === 0) return;
+
+                const pax = parseInt(c.PAX) || 1;
+
+                tourList.forEach(t => {
+                    counts[t] = (counts[t] || 0) + pax;
+                });
+            });
+
+            const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 5);
+
+            // Polar Area Colors
+            const polarColors = [
+                'hsla(250, 70%, 65%, 0.7)',
+                'hsla(190, 80%, 60%, 0.7)',
+                'hsla(320, 70%, 60%, 0.7)',
+                'hsla(40, 90%, 60%, 0.7)',
+                'hsla(150, 60%, 50%, 0.7)'
+            ];
+            const polarBorders = [
+                'hsla(250, 70%, 50%, 1)',
+                'hsla(190, 80%, 45%, 1)',
+                'hsla(320, 70%, 45%, 1)',
+                'hsla(40, 90%, 45%, 1)',
+                'hsla(150, 60%, 35%, 1)'
+            ];
+
+            charts.pkg = new Chart(ctx, {
+                type: 'polarArea', // RESTORED POLAR AREA
+                data: {
+                    labels: sorted.map(i => i[0].length > 15 ? i[0].substring(0, 15) + '...' : i[0]),
+                    datasets: [{
+                        label: 'PAX',
+                        data: sorted.map(i => i[1]),
+                        backgroundColor: polarColors,
+                        borderColor: polarBorders,
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'top', labels: { color: '#cbd5e1', font: { size: 10 } } },
+                        tooltip: {
+                            callbacks: {
+                                label: function (context) {
+                                    return ` ${context.label}: ${context.raw} PAX`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        r: {
+                            grid: { color: '#334155' },
+                            ticks: { display: false, backdropColor: 'transparent' },
+                            pointLabels: { display: false }
+                        }
+                    }
+                }
+            });
+        }
+
+        function renderTablePreview() {
+            const tbody = document.getElementById('table-preview-body');
+            tbody.innerHTML = '';
+
+            // Filter: Only 'Reserva' or 'Turista' (Case Insensitive)
+            const valid = state.contactos.filter(c => {
+                const status = (c.Estado_contacto || '').trim().toLowerCase();
+                return status === 'reserva' || status === 'turista';
+            });
+
+            // Sort by ID descending (Latest first)
+            const sorted = valid.sort((a, b) => {
+                const idA = parseInt((a.ID || '0').replace(/\D/g, ''));
+                const idB = parseInt((b.ID || '0').replace(/\D/g, ''));
+                return idB - idA;
+            });
+
+            const last5 = sorted.slice(0, 5);
+
+            if (last5.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="3" class="text-center text-xs text-slate-500 py-4">No hay reservas recientes</td></tr>';
+            }
+
+            last5.forEach(c => {
+                // Stack Tours Logic
+                const tours = (c.Tour_interes || '-').split(',').map(t => t.trim()).join('<br>');
+
+                tbody.innerHTML += `
                     <tr class="hover:bg-slate-800/10 transition border-b border-slate-700/50 cursor-pointer" onclick="openContactModal('${c.ID}')">
                         <td class="py-3 pl-2 max-w-[120px] truncate font-medium text-white" title="${c.Nombre}">${c.Nombre}</td>
                         <td class="py-3 text-center text-[10px] text-slate-400 font-mono leading-tight">${tours}</td>
                         <td class="py-3 text-right text-emerald-400 font-bold text-xs">${c.Monto_cotizado ? 'S/' + c.Monto_cotizado : '-'}</td>
                     </tr>
                 `;
-                });
-            }
+            });
+        }
 
 
 
 
 
 
-            // --- MULTI-SELECT TOURS LOGIC ---
-            let currentTours = [];
+        // --- MULTI-SELECT TOURS LOGIC ---
+        let currentTours = [];
 
-            function renderTours() {
-                const list = document.getElementById('tour-tags-list');
-                list.innerHTML = '';
-                currentTours.forEach((tour, index) => {
-                    const tag = document.createElement('div');
-                    tag.className = 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 rounded-md px-2 py-1 text-xs font-bold flex items-center gap-1';
-                    tag.innerHTML = `
+        function renderTours() {
+            const list = document.getElementById('tour-tags-list');
+            list.innerHTML = '';
+            currentTours.forEach((tour, index) => {
+                const tag = document.createElement('div');
+                tag.className = 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 rounded-md px-2 py-1 text-xs font-bold flex items-center gap-1';
+                tag.innerHTML = `
                     <span>${tour}</span>
                     <button onclick="removeTour(${index})" class="hover:text-white transition focus:outline-none">
                         <i class="fas fa-times"></i>
                     </button>
                 `;
-                    list.appendChild(tag);
-                });
-            }
+                list.appendChild(tag);
+            });
+        }
 
-            function addTour(tourName) {
-                const t = tourName.trim();
-                if (t && !currentTours.includes(t)) {
-                    currentTours.push(t);
-                    renderTours();
-                    document.getElementById('tour-input').value = '';
-                    document.getElementById('tour-dropdown-list').classList.add('hidden');
-                }
-            }
-
-            function removeTour(index) {
-                currentTours.splice(index, 1);
+        function addTour(tourName) {
+            const t = tourName.trim();
+            if (t && !currentTours.includes(t)) {
+                currentTours.push(t);
                 renderTours();
+                document.getElementById('tour-input').value = '';
+                document.getElementById('tour-dropdown-list').classList.add('hidden');
             }
+        }
 
-            // --- MULTI-SELECT TOURS LOGIC (FORM) ---
-            let formTours = [];
+        function removeTour(index) {
+            currentTours.splice(index, 1);
+            renderTours();
+        }
 
-            function renderFormTours() {
-                const list = document.getElementById('form-tags-list');
-                list.innerHTML = '';
-                formTours.forEach((tour, index) => {
-                    const tag = document.createElement('div');
-                    tag.className = 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 rounded-md px-2 py-1 text-xs font-bold flex items-center gap-1';
-                    tag.innerHTML = `
+        // --- MULTI-SELECT TOURS LOGIC (FORM) ---
+        let formTours = [];
+
+        function renderFormTours() {
+            const list = document.getElementById('form-tags-list');
+            list.innerHTML = '';
+            formTours.forEach((tour, index) => {
+                const tag = document.createElement('div');
+                tag.className = 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 rounded-md px-2 py-1 text-xs font-bold flex items-center gap-1';
+                tag.innerHTML = `
                     <span>${tour}</span>
                     <button type="button" onclick="removeFormTour(${index})" class="hover:text-white transition focus:outline-none">
                         <i class="fas fa-times"></i>
                     </button>
                 `;
-                    list.appendChild(tag);
-                });
-            }
+                list.appendChild(tag);
+            });
+        }
 
-            function addFormTour(tourName) {
-                const t = tourName.trim();
-                if (t && !formTours.includes(t)) {
-                    formTours.push(t);
-                    renderFormTours();
-                    document.getElementById('form-tour-input').value = '';
-                    document.getElementById('form-tour-dropdown').classList.add('hidden');
-                }
-            }
-
-            function removeFormTour(index) {
-                formTours.splice(index, 1);
+        function addFormTour(tourName) {
+            const t = tourName.trim();
+            if (t && !formTours.includes(t)) {
+                formTours.push(t);
                 renderFormTours();
+                document.getElementById('form-tour-input').value = '';
+                document.getElementById('form-tour-dropdown').classList.add('hidden');
             }
+        }
 
-            // Setup Tour Input Event Listeners
-            function setupTourInput() {
-                // MODAL INPUT
-                const input = document.getElementById('tour-input');
-                const dropdown = document.getElementById('tour-dropdown-list');
+        function removeFormTour(index) {
+            formTours.splice(index, 1);
+            renderFormTours();
+        }
 
-                input.addEventListener('focus', () => {
-                    if (!input.disabled) {
-                        renderDropdown(input.value, dropdown, false);
-                        dropdown.classList.remove('hidden');
-                    }
-                });
+        // Setup Tour Input Event Listeners
+        function setupTourInput() {
+            // MODAL INPUT
+            const input = document.getElementById('tour-input');
+            const dropdown = document.getElementById('tour-dropdown-list');
 
-                input.addEventListener('input', (e) => {
-                    renderDropdown(e.target.value, dropdown, false);
+            input.addEventListener('focus', () => {
+                if (!input.disabled) {
+                    renderDropdown(input.value, dropdown, false);
                     dropdown.classList.remove('hidden');
-                });
-                input.addEventListener('keydown', (e) => {
-                    if (e.key === 'Enter') {
-                        e.preventDefault();
-                        addTour(input.value);
-                    }
-                });
+                }
+            });
 
-                // FORM INPUT (Always enabled)
-                const formInput = document.getElementById('form-tour-input');
-                const formDropdown = document.getElementById('form-tour-dropdown');
+            input.addEventListener('input', (e) => {
+                renderDropdown(e.target.value, dropdown, false);
+                dropdown.classList.remove('hidden');
+            });
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    addTour(input.value);
+                }
+            });
 
-                formInput.addEventListener('focus', () => {
-                    renderDropdown(formInput.value, formDropdown, true);
-                    formDropdown.classList.remove('hidden');
-                });
+            // FORM INPUT (Always enabled)
+            const formInput = document.getElementById('form-tour-input');
+            const formDropdown = document.getElementById('form-tour-dropdown');
 
-                formInput.addEventListener('input', (e) => {
-                    renderDropdown(e.target.value, formDropdown, true);
-                    formDropdown.classList.remove('hidden');
-                });
-                formInput.addEventListener('keydown', (e) => {
-                    if (e.key === 'Enter') {
-                        e.preventDefault();
-                        addFormTour(formInput.value);
-                    }
-                });
+            formInput.addEventListener('focus', () => {
+                renderDropdown(formInput.value, formDropdown, true);
+                formDropdown.classList.remove('hidden');
+            });
+
+            formInput.addEventListener('input', (e) => {
+                renderDropdown(e.target.value, formDropdown, true);
+                formDropdown.classList.remove('hidden');
+            });
+            formInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    addFormTour(formInput.value);
+                }
+            });
 
 
-                // Close dropdown when clicking outside
-                document.addEventListener('click', (e) => {
-                    if (!input.contains(e.target) && !dropdown.contains(e.target)) {
-                        dropdown.classList.add('hidden');
-                    }
-                    if (!formInput.contains(e.target) && !formDropdown.contains(e.target)) {
-                        formDropdown.classList.add('hidden');
-                    }
-                });
-            }
+            // Close dropdown when clicking outside
+            document.addEventListener('click', (e) => {
+                if (!input.contains(e.target) && !dropdown.contains(e.target)) {
+                    dropdown.classList.add('hidden');
+                }
+                if (!formInput.contains(e.target) && !formDropdown.contains(e.target)) {
+                    formDropdown.classList.add('hidden');
+                }
+            });
+        }
 
-            function renderDropdown(filterText = '', dropdownEl, isForm) {
-                dropdownEl.innerHTML = '';
+        function renderDropdown(filterText = '', dropdownEl, isForm) {
+            dropdownEl.innerHTML = '';
 
-                const uniqueTours = new Set();
-                state.paquetes.forEach(p => { if (p.tour) uniqueTours.add(p.tour); });
+            const uniqueTours = new Set();
+            state.paquetes.forEach(p => { if (p.tour) uniqueTours.add(p.tour); });
 
-                const filtered = Array.from(uniqueTours).filter(t =>
-                    t.toLowerCase().includes(filterText.toLowerCase())
-                );
+            const filtered = Array.from(uniqueTours).filter(t =>
+                t.toLowerCase().includes(filterText.toLowerCase())
+            );
 
-                if (filtered.length === 0 && filterText.trim() !== '') {
-                    const action = isForm ? `addFormTour('${filterText}')` : `addTour('${filterText}')`;
-                    dropdownEl.innerHTML = `<div class="px-4 py-2 text-xs text-indigo-400 italic cursor-pointer hover:bg-slate-800" onclick="${action}">
+            if (filtered.length === 0 && filterText.trim() !== '') {
+                const action = isForm ? `addFormTour('${filterText}')` : `addTour('${filterText}')`;
+                dropdownEl.innerHTML = `<div class="px-4 py-2 text-xs text-indigo-400 italic cursor-pointer hover:bg-slate-800" onclick="${action}">
                     <i class="fas fa-plus-circle mr-1"></i> Agregar "${filterText}"
                 </div>`;
-                }
-
-                filtered.forEach(tour => {
-                    const opt = document.createElement('div');
-                    opt.className = 'px-4 py-2 text-sm text-slate-300 hover:bg-slate-700 cursor-pointer transition';
-                    opt.innerText = tour;
-                    opt.onclick = () => {
-                        if (isForm) addFormTour(tour);
-                        else addTour(tour);
-                        dropdownEl.classList.add('hidden');
-                    };
-                    dropdownEl.appendChild(opt);
-                });
             }
 
-            // --- MODAL LOGIC ---
-            function openContactModal(id) {
-                const c = state.contactos.find(x => x.ID === id);
-                if (!c) return;
+            filtered.forEach(tour => {
+                const opt = document.createElement('div');
+                opt.className = 'px-4 py-2 text-sm text-slate-300 hover:bg-slate-700 cursor-pointer transition';
+                opt.innerText = tour;
+                opt.onclick = () => {
+                    if (isForm) addFormTour(tour);
+                    else addTour(tour);
+                    dropdownEl.classList.add('hidden');
+                };
+                dropdownEl.appendChild(opt);
+            });
+        }
 
-                // Reset Edit Mode
+        // --- MODAL LOGIC ---
+        function openContactModal(id) {
+            const c = state.contactos.find(x => x.ID === id);
+            if (!c) return;
+
+            // Reset Edit Mode
+            disableEditMode();
+
+            // Populate Fields (Inputs)
+            document.getElementById('modal-id').innerText = c.ID;
+            document.getElementById('modal-nombre').value = c.Nombre || '';
+
+            const rawWsp = (c.Numero_whatsapp || '').replace("'", "");
+            document.getElementById('modal-whatsapp').value = rawWsp;
+            document.getElementById('modal-btn-wsp').href = `https://wa.me/${rawWsp.replace('+', '')}`;
+
+            // City Select
+            document.getElementById('modal-ciudad').value = c.Ciudad_contacto || 'Otro'; // Default to Otro if not found
+
+            // Tour Multi-Select Populating
+            currentTours = [];
+            if (c.Tour_interes && typeof c.Tour_interes === 'string') {
+                // Split by comma, trim whitespace, filter empty
+                c.Tour_interes.split(',').forEach(t => {
+                    const trimmed = t.trim();
+                    if (trimmed) currentTours.push(trimmed);
+                });
+            } else if (c.Tour_interes) {
+                // Fallback for non-string values (e.g. number from CSV sometimes)
+                currentTours.push(String(c.Tour_interes));
+            }
+            renderTours();
+
+            // Status Select
+            let st = (c.Estado_contacto || 'Lead');
+            // Compatibility Mapping
+            const map = {
+                'lead': 'Lead',
+                'nuevo': 'Lead',
+                'contactado': 'Lead',
+                'cotizacion': 'Info_enviada',
+                'interesado': 'Info_enviada',
+                'reserva': 'Reserva',
+                'reserva confirmada': 'Reserva',
+                'turista': 'Turista',
+                'confirmada': 'Reserva'
+            };
+            if (map[st.toLowerCase()]) st = map[st.toLowerCase()];
+
+            const statusSel = document.getElementById('modal-estado');
+            // Fallback if value doesn't exist in options (e.g. unknown status)
+            statusSel.value = st;
+            if (!statusSel.value) statusSel.value = 'Lead';
+
+            document.getElementById('modal-dni').value = c.DNI || '';
+            document.getElementById('modal-personas').value = c.PAX || '';
+            document.getElementById('modal-inicio-tour').value = c.Fecha_inicio_tour ? c.Fecha_inicio_tour.split('T')[0] : '';
+
+            // Restrict Date Picker to Today
+            const todayISO = new Date().toISOString().split('T')[0];
+            document.getElementById('modal-inicio-tour').setAttribute('min', todayISO);
+
+            document.getElementById('modal-dias-tour').value = c.Duracion_dias_tour || '';
+            document.getElementById('modal-embarque').value = c.Punto_embarque || '';
+            document.getElementById('modal-monto').value = parseFloat(c.Monto_cotizado) || 0;
+            document.getElementById('modal-fecha-contacto').innerText = c.Fecha_ultimo_contacto ? c.Fecha_ultimo_contacto.replace('T', ' ').split('.')[0] : '-';
+
+            document.getElementById('modal-notas').value = c.Notas || '';
+
+            document.getElementById('modal-origen').innerText = `Origen: ${c.Origen || 'Desconocido'}`;
+            document.getElementById('modal-registro').innerText = `Registrado: ${c.Fecha_registro ? c.Fecha_registro.replace('T', ' ').split('.')[0] : '-'}`;
+
+            // Show Modal
+            const modal = document.getElementById('contact-modal');
+            const backdrop = document.getElementById('modal-backdrop');
+            const panel = document.getElementById('modal-panel');
+
+            modal.classList.remove('hidden');
+            requestAnimationFrame(() => {
+                backdrop.classList.remove('opacity-0');
+                panel.classList.remove('opacity-0', 'translate-y-4', 'scale-95');
+            });
+        }
+
+        function closeContactModal() {
+            const modal = document.getElementById('contact-modal');
+            const backdrop = document.getElementById('modal-backdrop');
+            const panel = document.getElementById('modal-panel');
+
+            backdrop.classList.add('opacity-0');
+            panel.classList.add('opacity-0', 'translate-y-4', 'scale-95');
+
+            setTimeout(() => {
+                modal.classList.add('hidden');
+            }, 300);
+        }
+
+        // --- EDIT MODE LOGIC ---
+        function enableEditMode() {
+            document.getElementById('modal-btns-view').classList.add('hidden'); // Hide View Buttons (Close, Edit, Contact)
+            document.getElementById('modal-btns-edit').classList.remove('hidden'); // Show Edit Buttons (Cancel, Save)
+
+            const inputs = ['modal-nombre', 'modal-whatsapp', 'modal-ciudad', 'tour-input', 'modal-estado', 'modal-dni', 'modal-embarque', 'modal-monto', 'modal-notas', 'modal-personas', 'modal-dias-tour', 'modal-inicio-tour'];
+            inputs.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) {
+                    el.disabled = false;
+                    if (el.tagName === 'INPUT') el.classList.remove('border-none', 'bg-transparent');
+                    el.classList.add('bg-slate-800', 'border', 'border-slate-600');
+                }
+            });
+        }
+
+        function disableEditMode() {
+            document.getElementById('modal-btns-view').classList.remove('hidden'); // Show View Buttons
+            document.getElementById('modal-btns-edit').classList.add('hidden'); // Hide Edit Buttons
+
+            const inputs = ['modal-nombre', 'modal-whatsapp', 'modal-ciudad', 'tour-input', 'modal-estado', 'modal-dni', 'modal-embarque', 'modal-monto', 'modal-notas', 'modal-personas', 'modal-dias-tour', 'modal-inicio-tour'];
+            inputs.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) {
+                    el.disabled = true;
+                    if (el.tagName === 'INPUT') el.classList.add('border-none', 'bg-transparent');
+                    el.classList.remove('bg-slate-800', 'border', 'border-slate-600');
+                }
+            });
+        }
+
+        async function saveContactChanges() {
+            const idAttr = document.getElementById('modal-id').innerText;
+            const id = idAttr ? idAttr.trim() : '';
+
+            // Validar ID
+            if (!id) {
+                showToast('Error: No se encuentra el ID del contacto', 'warning');
+                return;
+            }
+
+            const contact = state.contactos.find(x => x.ID === id);
+            if (!contact) {
+                showToast('Error: Contacto no encontrado en memoria', 'error');
+                return;
+            }
+
+            // Collect Data
+            const updated = {
+                ...contact,
+                Nombre: document.getElementById('modal-nombre').value,
+                Numero_whatsapp: document.getElementById('modal-whatsapp').value,
+                Ciudad_contacto: document.getElementById('modal-ciudad').value,
+                Tour_interes: currentTours.join(', '),
+                Estado_contacto: document.getElementById('modal-estado').value,
+                DNI: document.getElementById('modal-dni').value,
+                Punto_embarque: document.getElementById('modal-embarque').value,
+                Monto_cotizado: document.getElementById('modal-monto').value,
+                Notas: document.getElementById('modal-notas').value,
+                PAX: document.getElementById('modal-personas').value,
+                Fecha_inicio_tour: document.getElementById('modal-inicio-tour').value,
+                Duracion_dias_tour: document.getElementById('modal-dias-tour').value,
+                Fecha_ultimo_contacto: new Date().toLocaleString('sv-SE', { timeZone: 'America/Lima' }).replace(' ', 'T')
+            };
+
+            // 1. Update Local State
+            const idx = state.contactos.findIndex(x => x.ID === id);
+            state.contactos[idx] = updated;
+
+            try {
+                // 2. Update UI
                 disableEditMode();
-
-                // Populate Fields (Inputs)
-                document.getElementById('modal-id').innerText = c.ID;
-                document.getElementById('modal-nombre').value = c.Nombre || '';
-
-                const rawWsp = (c.Numero_whatsapp || '').replace("'", "");
-                document.getElementById('modal-whatsapp').value = rawWsp;
-                document.getElementById('modal-btn-wsp').href = `https://wa.me/${rawWsp.replace('+', '')}`;
-
-                // City Select
-                document.getElementById('modal-ciudad').value = c.Ciudad_contacto || 'Otro'; // Default to Otro if not found
-
-                // Tour Multi-Select Populating
-                currentTours = [];
-                if (c.Tour_interes && typeof c.Tour_interes === 'string') {
-                    // Split by comma, trim whitespace, filter empty
-                    c.Tour_interes.split(',').forEach(t => {
-                        const trimmed = t.trim();
-                        if (trimmed) currentTours.push(trimmed);
-                    });
-                } else if (c.Tour_interes) {
-                    // Fallback for non-string values (e.g. number from CSV sometimes)
-                    currentTours.push(String(c.Tour_interes));
-                }
-                renderTours();
-
-                // Status Select
-                let st = (c.Estado_contacto || 'Lead');
-                // Compatibility Mapping
-                const map = {
-                    'lead': 'Lead',
-                    'nuevo': 'Lead',
-                    'contactado': 'Lead',
-                    'cotizacion': 'Info_enviada',
-                    'interesado': 'Info_enviada',
-                    'reserva': 'Reserva',
-                    'reserva confirmada': 'Reserva',
-                    'turista': 'Turista',
-                    'confirmada': 'Reserva'
-                };
-                if (map[st.toLowerCase()]) st = map[st.toLowerCase()];
-
-                const statusSel = document.getElementById('modal-estado');
-                // Fallback if value doesn't exist in options (e.g. unknown status)
-                statusSel.value = st;
-                if (!statusSel.value) statusSel.value = 'Lead';
-
-                document.getElementById('modal-dni').value = c.DNI || '';
-                document.getElementById('modal-personas').value = c.PAX || '';
-                document.getElementById('modal-inicio-tour').value = c.Fecha_inicio_tour ? c.Fecha_inicio_tour.split('T')[0] : '';
-
-                // Restrict Date Picker to Today
-                const todayISO = new Date().toISOString().split('T')[0];
-                document.getElementById('modal-inicio-tour').setAttribute('min', todayISO);
-
-                document.getElementById('modal-dias-tour').value = c.Duracion_dias_tour || '';
-                document.getElementById('modal-embarque').value = c.Punto_embarque || '';
-                document.getElementById('modal-monto').value = parseFloat(c.Monto_cotizado) || 0;
-                document.getElementById('modal-fecha-contacto').innerText = c.Fecha_ultimo_contacto ? c.Fecha_ultimo_contacto.replace('T', ' ').split('.')[0] : '-';
-
-                document.getElementById('modal-notas').value = c.Notas || '';
-
-                document.getElementById('modal-origen').innerText = `Origen: ${c.Origen || 'Desconocido'}`;
-                document.getElementById('modal-registro').innerText = `Registrado: ${c.Fecha_registro ? c.Fecha_registro.replace('T', ' ').split('.')[0] : '-'}`;
-
-                // Show Modal
-                const modal = document.getElementById('contact-modal');
-                const backdrop = document.getElementById('modal-backdrop');
-                const panel = document.getElementById('modal-panel');
-
-                modal.classList.remove('hidden');
-                requestAnimationFrame(() => {
-                    backdrop.classList.remove('opacity-0');
-                    panel.classList.remove('opacity-0', 'translate-y-4', 'scale-95');
-                });
+                closeContactModal();
+                updateDashboard();
+            } catch (uiError) {
+                console.error("UI Update Error", uiError);
+                showToast('Error visual (datos guardados)', 'warning');
             }
 
-            function closeContactModal() {
-                const modal = document.getElementById('contact-modal');
-                const backdrop = document.getElementById('modal-backdrop');
-                const panel = document.getElementById('modal-panel');
+            // 3. Send to Webhook (Fire and forget from user perspective)
+            const btn = document.querySelector('#modal-btns-edit button:last-child');
+            const originalText = btn ? btn.innerHTML : 'Guardar';
+            if (btn) btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...';
 
-                backdrop.classList.add('opacity-0');
-                panel.classList.add('opacity-0', 'translate-y-4', 'scale-95');
-
-                setTimeout(() => {
-                    modal.classList.add('hidden');
-                }, 300);
-            }
-
-            // --- EDIT MODE LOGIC ---
-            function enableEditMode() {
-                document.getElementById('modal-btns-view').classList.add('hidden'); // Hide View Buttons (Close, Edit, Contact)
-                document.getElementById('modal-btns-edit').classList.remove('hidden'); // Show Edit Buttons (Cancel, Save)
-
-                const inputs = ['modal-nombre', 'modal-whatsapp', 'modal-ciudad', 'tour-input', 'modal-estado', 'modal-dni', 'modal-embarque', 'modal-monto', 'modal-notas', 'modal-personas', 'modal-dias-tour', 'modal-inicio-tour'];
-                inputs.forEach(id => {
-                    const el = document.getElementById(id);
-                    if (el) {
-                        el.disabled = false;
-                        if (el.tagName === 'INPUT') el.classList.remove('border-none', 'bg-transparent');
-                        el.classList.add('bg-slate-800', 'border', 'border-slate-600');
-                    }
-                });
-            }
-
-            function disableEditMode() {
-                document.getElementById('modal-btns-view').classList.remove('hidden'); // Show View Buttons
-                document.getElementById('modal-btns-edit').classList.add('hidden'); // Hide Edit Buttons
-
-                const inputs = ['modal-nombre', 'modal-whatsapp', 'modal-ciudad', 'tour-input', 'modal-estado', 'modal-dni', 'modal-embarque', 'modal-monto', 'modal-notas', 'modal-personas', 'modal-dias-tour', 'modal-inicio-tour'];
-                inputs.forEach(id => {
-                    const el = document.getElementById(id);
-                    if (el) {
-                        el.disabled = true;
-                        if (el.tagName === 'INPUT') el.classList.add('border-none', 'bg-transparent');
-                        el.classList.remove('bg-slate-800', 'border', 'border-slate-600');
-                    }
-                });
-            }
-
-            async function saveContactChanges() {
-                const idAttr = document.getElementById('modal-id').innerText;
-                const id = idAttr ? idAttr.trim() : '';
-
-                // Validar ID
-                if (!id) {
-                    showToast('Error: No se encuentra el ID del contacto', 'warning');
-                    return;
-                }
-
-                const contact = state.contactos.find(x => x.ID === id);
-                if (!contact) {
-                    showToast('Error: Contacto no encontrado en memoria', 'error');
-                    return;
-                }
-
-                // Collect Data
-                const updated = {
-                    ...contact,
-                    Nombre: document.getElementById('modal-nombre').value,
-                    Numero_whatsapp: document.getElementById('modal-whatsapp').value,
-                    Ciudad_contacto: document.getElementById('modal-ciudad').value,
-                    Tour_interes: currentTours.join(', '),
-                    Estado_contacto: document.getElementById('modal-estado').value,
-                    DNI: document.getElementById('modal-dni').value,
-                    Punto_embarque: document.getElementById('modal-embarque').value,
-                    Monto_cotizado: document.getElementById('modal-monto').value,
-                    Notas: document.getElementById('modal-notas').value,
-                    PAX: document.getElementById('modal-personas').value,
-                    Fecha_inicio_tour: document.getElementById('modal-inicio-tour').value,
-                    Duracion_dias_tour: document.getElementById('modal-dias-tour').value,
-                    Fecha_ultimo_contacto: new Date().toLocaleString('sv-SE', { timeZone: 'America/Lima' }).replace(' ', 'T')
+            try {
+                const payload = {
+                    ID: updated.ID,
+                    Nombre: updated.Nombre,
+                    Numero_whatsapp: "'" + updated.Numero_whatsapp, // Force text in Sheets (Fix for + becoming formula)
+                    Ciudad_contacto: updated.Ciudad_contacto,
+                    Tour_interes: updated.Tour_interes,
+                    Estado_contacto: updated.Estado_contacto,
+                    DNI: updated.DNI,
+                    Punto_embarque: updated.Punto_embarque,
+                    Monto_cotizado: updated.Monto_cotizado,
+                    Notas: updated.Notas,
+                    PAX: updated.PAX,
+                    Fecha_inicio_tour: updated.Fecha_inicio_tour,
+                    Duracion_dias_tour: updated.Duracion_dias_tour,
+                    Fecha_registro: updated.Fecha_registro, // <--- Added this to preserve it
+                    Fecha_ultimo_contacto: updated.Fecha_ultimo_contacto,
+                    Origen: updated.Origen,
+                    Fecha_registro: updated.Fecha_registro,
+                    Fecha_ultimo_contacto: updated.Fecha_ultimo_contacto,
+                    Origen: updated.Origen,
+                    Action: "UPDATE"
                 };
 
-                // 1. Update Local State
-                const idx = state.contactos.findIndex(x => x.ID === id);
-                state.contactos[idx] = updated;
-
-                try {
-                    // 2. Update UI
-                    disableEditMode();
-                    closeContactModal();
-                    updateDashboard();
-                } catch (uiError) {
-                    console.error("UI Update Error", uiError);
-                    showToast('Error visual (datos guardados)', 'warning');
-                }
-
-                // 3. Send to Webhook (Fire and forget from user perspective)
-                const btn = document.querySelector('#modal-btns-edit button:last-child');
-                const originalText = btn ? btn.innerHTML : 'Guardar';
-                if (btn) btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...';
-
-                try {
-                    const payload = {
-                        ID: updated.ID,
-                        Nombre: updated.Nombre,
-                        Numero_whatsapp: "'" + updated.Numero_whatsapp, // Force text in Sheets (Fix for + becoming formula)
-                        Ciudad_contacto: updated.Ciudad_contacto,
-                        Tour_interes: updated.Tour_interes,
-                        Estado_contacto: updated.Estado_contacto,
-                        DNI: updated.DNI,
-                        Punto_embarque: updated.Punto_embarque,
-                        Monto_cotizado: updated.Monto_cotizado,
-                        Notas: updated.Notas,
-                        PAX: updated.PAX,
-                        Fecha_inicio_tour: updated.Fecha_inicio_tour,
-                        Duracion_dias_tour: updated.Duracion_dias_tour,
-                        Fecha_registro: updated.Fecha_registro, // <--- Added this to preserve it
-                        Fecha_ultimo_contacto: updated.Fecha_ultimo_contacto,
-                        Origen: updated.Origen,
-                        Fecha_registro: updated.Fecha_registro,
-                        Fecha_ultimo_contacto: updated.Fecha_ultimo_contacto,
-                        Origen: updated.Origen,
-                        Action: "UPDATE"
-                    };
-
-                    // Send to n8n (CORS enabled on server now)
-                    const response = await fetch(WEBHOOK_URL, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(payload)
-                    });
-
-                    if (response.ok) {
-                        showToast('Cambios guardados exitosamente', 'success');
-                        setTimeout(() => {
-                            window.location.reload();
-                        }, 1500);
-                    } else {
-                        showToast('Error al guardar', 'error');
-                    }
-
-                } catch (e) {
-                    console.error(e);
-                    showToast('Cambios guardados localmente (Offline)', 'warning');
-                } finally {
-                    if (btn) btn.innerHTML = originalText;
-                }
-            }
-
-            // --- STATE ---
-
-
-            // ... (Charts instance, initUI, etc remain same)
-
-            // --- FILTER & PAGINATION ---
-            function applyFilters() {
-                const search = document.getElementById('table-search').value.toLowerCase();
-                const fStatus = document.getElementById('filter-status').value.toLowerCase();
-                const fCity = document.getElementById('filter-city').value.toLowerCase();
-
-                // Filter Logic
-                state.filteredContactos = state.contactos.filter(c => {
-                    // 1. Text Search (Name, Wsp, Notes, ID)
-                    const textMatch = [c.Nombre, c.Numero_whatsapp, c.Notas, c.ID]
-                        .join(' ').toLowerCase().includes(search);
-                    // 2. Status Match
-                    const statusMatch = !fStatus || (c.Estado_contacto || '').toLowerCase().includes(fStatus);
-                    // 3. City Match
-                    const cityMatch = !fCity || (c.Ciudad_contacto || '').toLowerCase() === fCity;
-
-                    return textMatch && statusMatch && cityMatch;
-                }).sort((a, b) => {
-                    // Default Sort: Newest First (Desc ID)
-                    const idA = parseInt((a.ID || '0').replace(/\D/g, ''));
-                    const idB = parseInt((b.ID || '0').replace(/\D/g, ''));
-                    return idB - idA;
+                // Send to n8n (CORS enabled on server now)
+                const response = await fetch(WEBHOOK_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
                 });
 
-                // Reset to Page 1 on filter change
-                state.currentPage = 1;
-                renderTablePage();
-            }
-
-            function changePage(delta) {
-                const maxPage = Math.ceil(state.filteredContactos.length / state.rowsPerPage);
-                const newPage = state.currentPage + delta;
-
-                if (newPage >= 1 && newPage <= maxPage) {
-                    state.currentPage = newPage;
-                    renderTablePage();
-                }
-            }
-
-            function goToPage(target) {
-                const maxPage = Math.ceil(state.filteredContactos.length / state.rowsPerPage);
-                if (target === 'last') {
-                    state.currentPage = maxPage;
+                if (response.ok) {
+                    showToast('Cambios guardados exitosamente', 'success');
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 1500);
                 } else {
-                    state.currentPage = 1;
+                    showToast('Error al guardar', 'error');
                 }
+
+            } catch (e) {
+                console.error(e);
+                showToast('Cambios guardados localmente (Offline)', 'warning');
+            } finally {
+                if (btn) btn.innerHTML = originalText;
+            }
+        }
+
+        // --- STATE ---
+
+
+        // ... (Charts instance, initUI, etc remain same)
+
+        // --- FILTER & PAGINATION ---
+        function applyFilters() {
+            const search = document.getElementById('table-search').value.toLowerCase();
+            const fStatus = document.getElementById('filter-status').value.toLowerCase();
+            const fCity = document.getElementById('filter-city').value.toLowerCase();
+
+            // Filter Logic
+            state.filteredContactos = state.contactos.filter(c => {
+                // 1. Text Search (Name, Wsp, Notes, ID)
+                const textMatch = [c.Nombre, c.Numero_whatsapp, c.Notas, c.ID]
+                    .join(' ').toLowerCase().includes(search);
+                // 2. Status Match
+                const statusMatch = !fStatus || (c.Estado_contacto || '').toLowerCase().includes(fStatus);
+                // 3. City Match
+                const cityMatch = !fCity || (c.Ciudad_contacto || '').toLowerCase() === fCity;
+
+                return textMatch && statusMatch && cityMatch;
+            }).sort((a, b) => {
+                // Default Sort: Newest First (Desc ID)
+                const idA = parseInt((a.ID || '0').replace(/\D/g, ''));
+                const idB = parseInt((b.ID || '0').replace(/\D/g, ''));
+                return idB - idA;
+            });
+
+            // Reset to Page 1 on filter change
+            state.currentPage = 1;
+            renderTablePage();
+        }
+
+        function changePage(delta) {
+            const maxPage = Math.ceil(state.filteredContactos.length / state.rowsPerPage);
+            const newPage = state.currentPage + delta;
+
+            if (newPage >= 1 && newPage <= maxPage) {
+                state.currentPage = newPage;
                 renderTablePage();
             }
+        }
 
-            function renderTablePage() {
-                const tbody = document.getElementById('full-table-body');
-                tbody.innerHTML = '';
+        function goToPage(target) {
+            const maxPage = Math.ceil(state.filteredContactos.length / state.rowsPerPage);
+            if (target === 'last') {
+                state.currentPage = maxPage;
+            } else {
+                state.currentPage = 1;
+            }
+            renderTablePage();
+        }
 
-                const total = state.filteredContactos.length;
+        function renderTablePage() {
+            const tbody = document.getElementById('full-table-body');
+            tbody.innerHTML = '';
 
-                if (total === 0) {
-                    tbody.innerHTML = `<tr><td colspan="7" class="p-8 text-center text-slate-500">No se encontraron resultados</td></tr>`;
-                    document.getElementById('page-info-start').innerText = 0;
-                    document.getElementById('page-info-end').innerText = 0;
-                    document.getElementById('page-info-total').innerText = 0;
-                    document.getElementById('btn-prev').disabled = true;
-                    document.getElementById('btn-next').disabled = true;
-                    return;
-                }
+            const total = state.filteredContactos.length;
 
-                // Slice Data
-                const start = (state.currentPage - 1) * state.rowsPerPage;
-                const end = Math.min(start + state.rowsPerPage, total);
-                const pageData = state.filteredContactos.slice(start, end);
+            if (total === 0) {
+                tbody.innerHTML = `<tr><td colspan="7" class="p-8 text-center text-slate-500">No se encontraron resultados</td></tr>`;
+                document.getElementById('page-info-start').innerText = 0;
+                document.getElementById('page-info-end').innerText = 0;
+                document.getElementById('page-info-total').innerText = 0;
+                document.getElementById('btn-prev').disabled = true;
+                document.getElementById('btn-next').disabled = true;
+                return;
+            }
 
-                // Render Rows
-                pageData.forEach(c => {
-                    let statusColor = 'bg-slate-700 text-slate-300';
-                    const st = (c.Estado_contacto || '').toLowerCase();
+            // Slice Data
+            const start = (state.currentPage - 1) * state.rowsPerPage;
+            const end = Math.min(start + state.rowsPerPage, total);
+            const pageData = state.filteredContactos.slice(start, end);
 
-                    if (st.includes('reserva')) statusColor = 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/20'; // Green
-                    else if (st.includes('turista')) statusColor = 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/20'; // Cyan
-                    else if (st.includes('info_enviada')) statusColor = 'bg-amber-500/20 text-amber-400 border border-amber-500/20'; // Orange
-                    else if (st.includes('lead')) statusColor = 'bg-purple-500/20 text-purple-400 border border-purple-500/20'; // Purple
-                    else if (st.includes('cancelado')) statusColor = 'bg-rose-500/20 text-rose-400 border border-rose-500/20'; // Red
+            // Render Rows
+            pageData.forEach(c => {
+                let statusColor = 'bg-slate-700 text-slate-300';
+                const st = (c.Estado_contacto || '').toLowerCase();
 
-                    const id = c.ID || '-';
-                    const name = c.Nombre || 'Sin Nombre';
-                    const wsp = c.Numero_whatsapp ? c.Numero_whatsapp.replace("'", "") : '-';
-                    const city = c.Ciudad_contacto || '-';
-                    const tour = c.Tour_interes || '-';
-                    const status = c.Estado_contacto || 'Nuevo';
-                    const amount = c.Monto_cotizado ? `S/ ${parseFloat(c.Monto_cotizado).toFixed(2)}` : '-';
+                if (st.includes('reserva')) statusColor = 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/20'; // Green
+                else if (st.includes('turista')) statusColor = 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/20'; // Cyan
+                else if (st.includes('info_enviada')) statusColor = 'bg-amber-500/20 text-amber-400 border border-amber-500/20'; // Orange
+                else if (st.includes('lead')) statusColor = 'bg-purple-500/20 text-purple-400 border border-purple-500/20'; // Purple
+                else if (st.includes('cancelado')) statusColor = 'bg-rose-500/20 text-rose-400 border border-rose-500/20'; // Red
 
-                    // Responsive Card (Mobile) / Table Row (Desktop)
-                    tbody.innerHTML += `
+                const id = c.ID || '-';
+                const name = c.Nombre || 'Sin Nombre';
+                const wsp = c.Numero_whatsapp ? c.Numero_whatsapp.replace("'", "") : '-';
+                const city = c.Ciudad_contacto || '-';
+                const tour = c.Tour_interes || '-';
+                const status = c.Estado_contacto || 'Nuevo';
+                const amount = c.Monto_cotizado ? `S/ ${parseFloat(c.Monto_cotizado).toFixed(2)}` : '-';
+
+                // Responsive Card (Mobile) / Table Row (Desktop)
+                tbody.innerHTML += `
                     <tr class="block md:table-row mb-4 md:mb-0 bg-slate-900/80 md:bg-transparent rounded-xl md:rounded-none border border-slate-800 md:border-b md:border-x-0 group cursor-pointer hover:bg-slate-800 transition" onclick="openContactModal('${id}')">
                         
                         <!-- ID -->
@@ -1876,464 +1906,464 @@
                         </td>
                     </tr>
                 `;
-                });
+            });
 
-                // Update Controls
-                document.getElementById('page-info-start').innerText = start + 1;
-                document.getElementById('page-info-end').innerText = end;
-                document.getElementById('page-info-total').innerText = total;
+            // Update Controls
+            document.getElementById('page-info-start').innerText = start + 1;
+            document.getElementById('page-info-end').innerText = end;
+            document.getElementById('page-info-total').innerText = total;
 
-                const maxPage = Math.ceil(total / state.rowsPerPage);
-                document.getElementById('btn-prev').disabled = state.currentPage === 1;
-                document.getElementById('btn-next').disabled = state.currentPage === maxPage;
+            const maxPage = Math.ceil(total / state.rowsPerPage);
+            document.getElementById('btn-prev').disabled = state.currentPage === 1;
+            document.getElementById('btn-next').disabled = state.currentPage === maxPage;
 
-                // New Buttons Logic
-                document.getElementById('btn-first').disabled = state.currentPage === 1;
-                document.getElementById('btn-last').disabled = state.currentPage === maxPage;
+            // New Buttons Logic
+            document.getElementById('btn-first').disabled = state.currentPage === 1;
+            document.getElementById('btn-last').disabled = state.currentPage === maxPage;
+        }
+
+        // --- FORM SUBMISSION ---
+        async function submitForm(e) {
+            e.preventDefault();
+            const form = e.target; // Get form element properly
+            const loading = document.getElementById('form-loading');
+
+            // Collect Data
+            // Collect Data
+            const formData = new FormData(form);
+
+            // Format Name: Title Case
+            let rawName = (formData.get('nombre') || '').trim();
+            const nombre = rawName.toLowerCase().replace(/\b\w/g, s => s.toUpperCase());
+
+            // Format WhatsApp: Remove spaces, Ensure '+' prefix
+            let rawWsp = (formData.get('whatsapp') || '').replace(/\s+/g, '');
+            let whatsapp = rawWsp;
+            if (whatsapp && !whatsapp.startsWith('+')) {
+                whatsapp = '+' + whatsapp;
             }
 
-            // --- FORM SUBMISSION ---
-            async function submitForm(e) {
-                e.preventDefault();
-                const form = e.target; // Get form element properly
-                const loading = document.getElementById('form-loading');
+            // Validate Amount: Non-negative
+            let monto = parseFloat(formData.get('monto')) || 0;
+            const montoStr = monto.toFixed(2);
 
-                // Collect Data
-                // Collect Data
-                const formData = new FormData(form);
+            // 1. Validation: Check Duplicates (Compare stripped numbers)
+            // We strip non-digits to compare safely against potential variations in Sheet
+            const cleanNewWsp = whatsapp.replace(/\D/g, '');
+            const duplicate = state.contactos.find(c => {
+                const cleanExisting = (c.Numero_whatsapp || '').replace(/\D/g, '');
+                return cleanExisting === cleanNewWsp && cleanExisting.length > 5; // Ensure not empty/short matches
+            });
 
-                // Format Name: Title Case
-                let rawName = (formData.get('nombre') || '').trim();
-                const nombre = rawName.toLowerCase().replace(/\b\w/g, s => s.toUpperCase());
+            if (duplicate) {
+                showToast(`El número ${whatsapp} ya está registrado`, 'error');
+                return;
+            }
 
-                // Format WhatsApp: Remove spaces, Ensure '+' prefix
-                let rawWsp = (formData.get('whatsapp') || '').replace(/\s+/g, '');
-                let whatsapp = rawWsp;
-                if (whatsapp && !whatsapp.startsWith('+')) {
-                    whatsapp = '+' + whatsapp;
+            // 2. Logic: Auto-ID
+            let newId = 'C-000001';
+            if (state.contactos.length > 0) {
+                const ids = state.contactos.map(c => c.ID).filter(id => id && id.startsWith('C-'));
+                if (ids.length > 0) {
+                    const maxNum = Math.max(...ids.map(id => parseInt(id.split('-')[1]) || 0));
+                    newId = `C-${(maxNum + 1).toString().padStart(6, '0')}`;
                 }
+            }
 
-                // Validate Amount: Non-negative
-                let monto = parseFloat(formData.get('monto')) || 0;
-                const montoStr = monto.toFixed(2);
+            // Date in Peru Timezone (Format: YYYY-MM-DD HH:mm:ss)
+            const now = new Date().toLocaleString('sv-SE', {
+                timeZone: 'America/Lima',
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+            }).replace(' ', 'T'); // Results in "2026-01-07T17:00:00" (Local Peru Time)
 
-                // 1. Validation: Check Duplicates (Compare stripped numbers)
-                // We strip non-digits to compare safely against potential variations in Sheet
-                const cleanNewWsp = whatsapp.replace(/\D/g, '');
-                const duplicate = state.contactos.find(c => {
-                    const cleanExisting = (c.Numero_whatsapp || '').replace(/\D/g, '');
-                    return cleanExisting === cleanNewWsp && cleanExisting.length > 5; // Ensure not empty/short matches
+            // Ensure we use the 'whatsapp' variable which surely has '+'
+            const jsonData = {
+                ID: newId,
+                Nombre: nombre,
+                Numero_whatsapp: "'" + whatsapp, // Force text in Sheets
+                DNI: (formData.get('dni') || '').trim(),
+                Ciudad_contacto: formData.get('ciudad'),
+                Tour_interes: formTours.join(', '),
+                Estado_contacto: formData.get('estado'),
+                Punto_embarque: (formData.get('punto_embarque') || '').trim(),
+                Fecha_registro: now,
+                Fecha_ultimo_contacto: now,
+                PAX: (formData.get('numero_personas') || '').trim(),
+                Fecha_inicio_tour: (formData.get('fecha_inicio_tour') || ''),
+                Duracion_dias_tour: (formData.get('duracion_dias_tour') || ''),
+                Monto_cotizado: montoStr,
+                Notas: (formData.get('notas') || '').trim(),
+                Origen: 'web_dashboard',
+                Action: 'CREATE'
+            };
+
+            // Basic Validation
+            if (!jsonData.Nombre || !jsonData.Numero_whatsapp) return showToast("Faltan datos requeridos", "error");
+
+            loading.classList.remove('hidden');
+
+            try {
+                // Post to Webhook
+                const res = await fetch(WEBHOOK_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(jsonData)
                 });
 
-                if (duplicate) {
-                    showToast(`El número ${whatsapp} ya está registrado`, 'error');
-                    return;
-                }
+                if (res.ok) {
+                    showToast("✅ Contacto enviado al CRM");
+                    form.reset();
 
-                // 2. Logic: Auto-ID
-                let newId = 'C-000001';
-                if (state.contactos.length > 0) {
-                    const ids = state.contactos.map(c => c.ID).filter(id => id && id.startsWith('C-'));
-                    if (ids.length > 0) {
-                        const maxNum = Math.max(...ids.map(id => parseInt(id.split('-')[1]) || 0));
-                        newId = `C-${(maxNum + 1).toString().padStart(6, '0')}`;
-                    }
-                }
-
-                // Date in Peru Timezone (Format: YYYY-MM-DD HH:mm:ss)
-                const now = new Date().toLocaleString('sv-SE', {
-                    timeZone: 'America/Lima',
-                    year: 'numeric',
-                    month: '2-digit',
-                    day: '2-digit',
-                    hour: '2-digit',
-                    minute: '2-digit',
-                    second: '2-digit'
-                }).replace(' ', 'T'); // Results in "2026-01-07T17:00:00" (Local Peru Time)
-
-                // Ensure we use the 'whatsapp' variable which surely has '+'
-                const jsonData = {
-                    ID: newId,
-                    Nombre: nombre,
-                    Numero_whatsapp: "'" + whatsapp, // Force text in Sheets
-                    DNI: (formData.get('dni') || '').trim(),
-                    Ciudad_contacto: formData.get('ciudad'),
-                    Tour_interes: formTours.join(', '),
-                    Estado_contacto: formData.get('estado'),
-                    Punto_embarque: (formData.get('punto_embarque') || '').trim(),
-                    Fecha_registro: now,
-                    Fecha_ultimo_contacto: now,
-                    PAX: (formData.get('numero_personas') || '').trim(),
-                    Fecha_inicio_tour: (formData.get('fecha_inicio_tour') || ''),
-                    Duracion_dias_tour: (formData.get('duracion_dias_tour') || ''),
-                    Monto_cotizado: montoStr,
-                    Notas: (formData.get('notas') || '').trim(),
-                    Origen: 'web_dashboard',
-                    Action: 'CREATE'
-                };
-
-                // Basic Validation
-                if (!jsonData.Nombre || !jsonData.Numero_whatsapp) return showToast("Faltan datos requeridos", "error");
-
-                loading.classList.remove('hidden');
-
-                try {
-                    // Post to Webhook
-                    const res = await fetch(WEBHOOK_URL, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(jsonData)
+                    // Optimistic UI Update (Add to local state immediately)
+                    state.contactos.push({
+                        ID: jsonData.ID,
+                        Nombre: jsonData.Nombre,
+                        Numero_whatsapp: jsonData.Numero_whatsapp.replace("'", ""), // Remove quote for UI display
+                        Ciudad_contacto: jsonData.Ciudad_contacto,
+                        Tour_interes: jsonData.Tour_interes,
+                        Fecha_registro: jsonData.Fecha_registro.replace('T', ' ').split('.')[0], // Format approx
+                        Monto_cotizado: jsonData.Monto_cotizado
                     });
 
-                    if (res.ok) {
-                        showToast("✅ Contacto enviado al CRM");
-                        form.reset();
+                    // Reset Form Extras
+                    formTours = [];
+                    renderFormTours();
 
-                        // Optimistic UI Update (Add to local state immediately)
-                        state.contactos.push({
-                            ID: jsonData.ID,
-                            Nombre: jsonData.Nombre,
-                            Numero_whatsapp: jsonData.Numero_whatsapp.replace("'", ""), // Remove quote for UI display
-                            Ciudad_contacto: jsonData.Ciudad_contacto,
-                            Tour_interes: jsonData.Tour_interes,
-                            Fecha_registro: jsonData.Fecha_registro.replace('T', ' ').split('.')[0], // Format approx
-                            Monto_cotizado: jsonData.Monto_cotizado
-                        });
+                    updateDashboard();
 
-                        // Reset Form Extras
-                        formTours = [];
-                        renderFormTours();
-
-                        updateDashboard();
-
-                    } else {
-                        throw new Error("Webhook Error");
-                    }
-                } catch (err) {
-                    console.error(err);
-                    showToast("⚠️ Hubo un error al enviar (Posible CORS/Network)", "error");
-                } finally {
-                    loading.classList.add('hidden');
-                }
-            }
-
-            // --- EXPORT LOGIC ---
-            function openExportModal() {
-                const modal = document.getElementById('export-modal');
-                modal.classList.remove('hidden');
-                requestAnimationFrame(() => {
-                    document.getElementById('export-backdrop').classList.remove('opacity-0');
-                    document.getElementById('export-panel').classList.remove('opacity-0', 'scale-95', 'translate-y-4');
-                });
-            }
-
-            function closeExportModal() {
-                const backdrop = document.getElementById('export-backdrop');
-                const panel = document.getElementById('export-panel');
-                backdrop.classList.add('opacity-0');
-                panel.classList.add('opacity-0', 'scale-95', 'translate-y-4');
-                setTimeout(() => document.getElementById('export-modal').classList.add('hidden'), 300);
-            }
-
-            function downloadExport(type) {
-                let data = [...state.contactos]; // Copy array
-                let filename = 'contactos_todo.csv';
-
-                if (type === 'month') {
-                    const val = document.getElementById('export-month').value; // YYYY-MM
-                    if (!val) { showToast('Selecciona un mes', 'warning'); return; }
-                    data = data.filter(c => c.Fecha_registro && c.Fecha_registro.startsWith(val));
-                    filename = `contactos_mes_${val}.csv`;
-                } else if (type === 'day') {
-                    const val = document.getElementById('export-day').value; // YYYY-MM-DD
-                    if (!val) { showToast('Selecciona un día', 'warning'); return; }
-                    data = data.filter(c => c.Fecha_registro && c.Fecha_registro.startsWith(val));
-                    filename = `contactos_dia_${val}.csv`;
-                }
-
-                if (data.length === 0) { showToast('No hay datos para esa fecha', 'warning'); return; }
-
-                // Unparse
-                const csv = Papa.unparse(data);
-                // Add BOM (\uFEFF) so Excel recognizes it as UTF-8
-                const blob = new Blob(["\ufeff" + csv], { type: 'text/csv;charset=utf-8;' });
-                const link = document.createElement("a");
-                const url = URL.createObjectURL(blob);
-                link.setAttribute("href", url);
-                link.setAttribute("download", filename);
-                link.style.visibility = 'hidden';
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-
-                showToast(`Descargados ${data.length} registros`, 'success');
-                closeExportModal();
-            }
-
-            // --- MOBILE SIDEBAR TOGGLE ---
-            function toggleSidebar() {
-                const sidebar = document.getElementById('sidebar');
-                const overlay = document.getElementById('sidebar-overlay');
-
-                // Toggle Translate Class
-                sidebar.classList.toggle('-translate-x-full');
-
-                // Toggle Overlay
-                if (overlay.classList.contains('hidden')) {
-                    overlay.classList.remove('hidden');
-                    // Small delay to allow transition
-                    requestAnimationFrame(() => overlay.classList.remove('opacity-0'));
                 } else {
-                    overlay.classList.add('opacity-0');
-                    setTimeout(() => overlay.classList.add('hidden'), 300);
+                    throw new Error("Webhook Error");
                 }
+            } catch (err) {
+                console.error(err);
+                showToast("⚠️ Hubo un error al enviar (Posible CORS/Network)", "error");
+            } finally {
+                loading.classList.add('hidden');
+            }
+        }
+
+        // --- EXPORT LOGIC ---
+        function openExportModal() {
+            const modal = document.getElementById('export-modal');
+            modal.classList.remove('hidden');
+            requestAnimationFrame(() => {
+                document.getElementById('export-backdrop').classList.remove('opacity-0');
+                document.getElementById('export-panel').classList.remove('opacity-0', 'scale-95', 'translate-y-4');
+            });
+        }
+
+        function closeExportModal() {
+            const backdrop = document.getElementById('export-backdrop');
+            const panel = document.getElementById('export-panel');
+            backdrop.classList.add('opacity-0');
+            panel.classList.add('opacity-0', 'scale-95', 'translate-y-4');
+            setTimeout(() => document.getElementById('export-modal').classList.add('hidden'), 300);
+        }
+
+        function downloadExport(type) {
+            let data = [...state.contactos]; // Copy array
+            let filename = 'contactos_todo.csv';
+
+            if (type === 'month') {
+                const val = document.getElementById('export-month').value; // YYYY-MM
+                if (!val) { showToast('Selecciona un mes', 'warning'); return; }
+                data = data.filter(c => c.Fecha_registro && c.Fecha_registro.startsWith(val));
+                filename = `contactos_mes_${val}.csv`;
+            } else if (type === 'day') {
+                const val = document.getElementById('export-day').value; // YYYY-MM-DD
+                if (!val) { showToast('Selecciona un día', 'warning'); return; }
+                data = data.filter(c => c.Fecha_registro && c.Fecha_registro.startsWith(val));
+                filename = `contactos_dia_${val}.csv`;
             }
 
-            // --- NAVIGATION & UTILS ---
-            function switchView(viewName) {
-                const views = ['overview', 'leads', 'form'];
-                views.forEach(v => {
-                    document.getElementById('view-' + v).classList.add('hidden');
-                    document.getElementById('nav-' + v).classList.remove('active', 'bg-indigo-500/10', 'text-indigo-400', 'border-indigo-500', 'border-r-3');
-                    // Reset basic style
-                    document.getElementById('nav-' + v).classList.add('text-slate-400');
-                });
+            if (data.length === 0) { showToast('No hay datos para esa fecha', 'warning'); return; }
 
-                const activeNav = document.getElementById('nav-' + viewName);
-                activeNav.classList.add('active', 'text-indigo-400');
-                activeNav.classList.remove('text-slate-400');
+            // Unparse
+            const csv = Papa.unparse(data);
+            // Add BOM (\uFEFF) so Excel recognizes it as UTF-8
+            const blob = new Blob(["\ufeff" + csv], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement("a");
+            const url = URL.createObjectURL(blob);
+            link.setAttribute("href", url);
+            link.setAttribute("download", filename);
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
 
-                document.getElementById('view-' + viewName).classList.remove('hidden');
-                document.getElementById('page-title').innerText = viewName === 'overview' ? 'Dashboard' : (viewName === 'form' ? 'Nuevo Contacto' : 'Base de Datos');
+            showToast(`Descargados ${data.length} registros`, 'success');
+            closeExportModal();
+        }
 
-                // Toggle Global Filter            // GLOBAL FILTER VISIBILITY (FIXED)
-                const globalFilter = document.getElementById('global-date-filter');
-                if (globalFilter) {
-                    if (viewName === 'overview') {
-                        globalFilter.classList.remove('hidden');
-                        globalFilter.classList.add('md:flex'); // Restore flex layout
-                    } else {
-                        globalFilter.classList.add('hidden');
-                        globalFilter.classList.remove('md:flex'); // Remove flex layout
-                    }
-                }
+        // --- MOBILE SIDEBAR TOGGLE ---
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('sidebar-overlay');
 
-                // Auto-close sidebar on mobile
-                const overlay = document.getElementById('sidebar-overlay');
-                // Check actual visibility or screen width to be safe
-                if (window.innerWidth < 1024 && !overlay.classList.contains('hidden')) {
-                    toggleSidebar();
-                }
+            // Toggle Translate Class
+            sidebar.classList.toggle('-translate-x-full');
+
+            // Toggle Overlay
+            if (overlay.classList.contains('hidden')) {
+                overlay.classList.remove('hidden');
+                // Small delay to allow transition
+                requestAnimationFrame(() => overlay.classList.remove('opacity-0'));
+            } else {
+                overlay.classList.add('opacity-0');
+                setTimeout(() => overlay.classList.add('hidden'), 300);
             }
+        }
 
-            function showToast(msg, type = 'success') {
-                const container = document.getElementById('toast-container');
-                const el = document.createElement('div');
-                const color = type === 'success' ? 'bg-emerald-500' : 'bg-rose-500';
-                el.className = `${color} text-white px-6 py-3 rounded-xl shadow-2xl font-bold text-sm flex items-center gap-3 transform translate-y-10 opacity-0 transition-all duration-300 pointer-events-auto`;
-                el.innerHTML = `<i class="fas ${type === 'success' ? 'fa-check' : 'fa-exclamation-triangle'}"></i> <span>${msg}</span>`;
+        // --- NAVIGATION & UTILS ---
+        function switchView(viewName) {
+            const views = ['overview', 'leads', 'form'];
+            views.forEach(v => {
+                document.getElementById('view-' + v).classList.add('hidden');
+                document.getElementById('nav-' + v).classList.remove('active', 'bg-indigo-500/10', 'text-indigo-400', 'border-indigo-500', 'border-r-3');
+                // Reset basic style
+                document.getElementById('nav-' + v).classList.add('text-slate-400');
+            });
 
-                container.appendChild(el);
+            const activeNav = document.getElementById('nav-' + viewName);
+            activeNav.classList.add('active', 'text-indigo-400');
+            activeNav.classList.remove('text-slate-400');
 
-                // Animation In
-                requestAnimationFrame(() => { el.classList.remove('translate-y-10', 'opacity-0'); });
+            document.getElementById('view-' + viewName).classList.remove('hidden');
+            document.getElementById('page-title').innerText = viewName === 'overview' ? 'Dashboard' : (viewName === 'form' ? 'Nuevo Contacto' : 'Base de Datos');
 
-                // Remove after 3s
-                setTimeout(() => {
-                    el.classList.add('translate-y-10', 'opacity-0');
-                    setTimeout(() => el.remove(), 300);
-                }, 3000);
-            }
-
-            // --- FORECAST CHART LOGIC (INLINED) ---
-            function renderForecastChart() {
-                // SECURITY: Ensure 'charts' variable is accessible.
-                let chartRegistry;
-                if (typeof charts !== 'undefined') {
-                    chartRegistry = charts;
-                } else if (window.charts) {
-                    chartRegistry = window.charts;
+            // Toggle Global Filter            // GLOBAL FILTER VISIBILITY (FIXED)
+            const globalFilter = document.getElementById('global-date-filter');
+            if (globalFilter) {
+                if (viewName === 'overview') {
+                    globalFilter.classList.remove('hidden');
+                    globalFilter.classList.add('md:flex'); // Restore flex layout
                 } else {
-                    console.error("Critical: 'charts' object not found in global scope.");
-                    return;
+                    globalFilter.classList.add('hidden');
+                    globalFilter.classList.remove('md:flex'); // Remove flex layout
+                }
+            }
+
+            // Auto-close sidebar on mobile
+            const overlay = document.getElementById('sidebar-overlay');
+            // Check actual visibility or screen width to be safe
+            if (window.innerWidth < 1024 && !overlay.classList.contains('hidden')) {
+                toggleSidebar();
+            }
+        }
+
+        function showToast(msg, type = 'success') {
+            const container = document.getElementById('toast-container');
+            const el = document.createElement('div');
+            const color = type === 'success' ? 'bg-emerald-500' : 'bg-rose-500';
+            el.className = `${color} text-white px-6 py-3 rounded-xl shadow-2xl font-bold text-sm flex items-center gap-3 transform translate-y-10 opacity-0 transition-all duration-300 pointer-events-auto`;
+            el.innerHTML = `<i class="fas ${type === 'success' ? 'fa-check' : 'fa-exclamation-triangle'}"></i> <span>${msg}</span>`;
+
+            container.appendChild(el);
+
+            // Animation In
+            requestAnimationFrame(() => { el.classList.remove('translate-y-10', 'opacity-0'); });
+
+            // Remove after 3s
+            setTimeout(() => {
+                el.classList.add('translate-y-10', 'opacity-0');
+                setTimeout(() => el.remove(), 300);
+            }, 3000);
+        }
+
+        // --- FORECAST CHART LOGIC (INLINED) ---
+        function renderForecastChart() {
+            // SECURITY: Ensure 'charts' variable is accessible.
+            let chartRegistry;
+            if (typeof charts !== 'undefined') {
+                chartRegistry = charts;
+            } else if (window.charts) {
+                chartRegistry = window.charts;
+            } else {
+                console.error("Critical: 'charts' object not found in global scope.");
+                return;
+            }
+
+            const ctxWrapper = document.getElementById('chart-forecast');
+            if (!ctxWrapper) return;
+
+            if (chartRegistry.forecast) chartRegistry.forecast.destroy();
+
+            const ctx = ctxWrapper.getContext('2d');
+
+            // --- 1. Generar Ventana de 7 Días ---
+            const labels = [];
+            const dates = [];
+            const today = new Date();
+            today.setHours(0, 0, 0, 0); // Inicio del día
+
+            // Rango: HOY hasta HOY+4 (5 días)
+            for (let i = 0; i < 5; i++) {
+                const d = new Date(today);
+                d.setDate(today.getDate() + i);
+                dates.push(d);
+
+                const dow = d.toLocaleDateString('es-ES', { weekday: 'short' });
+                const dayNum = d.getDate();
+                labels.push(`${dow} ${dayNum}`);
+            }
+
+            // --- 2. Color Generator (Dynamic Hash) ---
+            const getTourColor = (tourName) => {
+                if (!tourName) return '#94a3b8'; // Slate default
+
+                let hash = 0;
+                for (let i = 0; i < tourName.length; i++) {
+                    hash = tourName.charCodeAt(i) + ((hash << 5) - hash);
                 }
 
-                const ctxWrapper = document.getElementById('chart-forecast');
-                if (!ctxWrapper) return;
+                const h = Math.abs(hash % 360);
+                return `hsl(${h}, 70%, 55%)`;
+            };
 
-                if (chartRegistry.forecast) chartRegistry.forecast.destroy();
+            const datasets = [];
 
-                const ctx = ctxWrapper.getContext('2d');
+            // Validar estado
+            let globalState;
+            if (typeof state !== 'undefined') globalState = state;
+            else if (window.state) globalState = window.state;
+            else return;
 
-                // --- 1. Generar Ventana de 7 Días ---
-                const labels = [];
-                const dates = [];
-                const today = new Date();
-                today.setHours(0, 0, 0, 0); // Inicio del día
+            if (!globalState || !globalState.contactos) return;
 
-                // Rango: HOY hasta HOY+4 (5 días)
-                for (let i = 0; i < 5; i++) {
-                    const d = new Date(today);
-                    d.setDate(today.getDate() + i);
-                    dates.push(d);
+            globalState.contactos.forEach(c => {
+                // Filtro Básico
+                if (c.Estado_contacto === 'Cancelado' || !c.Fecha_inicio_tour) return;
 
-                    const dow = d.toLocaleDateString('es-ES', { weekday: 'short' });
-                    const dayNum = d.getDate();
-                    labels.push(`${dow} ${dayNum}`);
-                }
+                // Parsear Fechas (YYYY-MM-DD)
+                const startParts = c.Fecha_inicio_tour.split('-');
+                if (startParts.length !== 3) return;
 
-                // --- 2. Color Generator (Dynamic Hash) ---
-                const getTourColor = (tourName) => {
-                    if (!tourName) return '#94a3b8'; // Slate default
+                const startDate = new Date(startParts[0], startParts[1] - 1, startParts[2]);
+                const duration = parseInt(c.Duracion_dias_tour) || 1;
 
-                    let hash = 0;
-                    for (let i = 0; i < tourName.length; i++) {
-                        hash = tourName.charCodeAt(i) + ((hash << 5) - hash);
+                const endDate = new Date(startDate);
+                endDate.setDate(endDate.getDate() + duration);
+
+                // Ventana del forecast
+                const windowStart = dates[0];
+                const windowEnd = new Date(dates[4]);
+                windowEnd.setDate(windowEnd.getDate() + 1);
+
+                // Verificar solapamiento
+                if (endDate <= windowStart || startDate >= windowEnd) return;
+
+                // Generar Array de Datos (7 días)
+                let hasActivity = false;
+                const paxData = dates.map(date => {
+                    const dTime = date.getTime();
+                    const sTime = startDate.getTime();
+                    const eTime = endDate.getTime();
+
+                    if (dTime >= sTime && dTime < eTime) {
+                        hasActivity = true;
+                        return parseInt(c.PAX) || 1;
                     }
-
-                    const h = Math.abs(hash % 360);
-                    return `hsl(${h}, 70%, 55%)`;
-                };
-
-                const datasets = [];
-
-                // Validar estado
-                let globalState;
-                if (typeof state !== 'undefined') globalState = state;
-                else if (window.state) globalState = window.state;
-                else return;
-
-                if (!globalState || !globalState.contactos) return;
-
-                globalState.contactos.forEach(c => {
-                    // Filtro Básico
-                    if (c.Estado_contacto === 'Cancelado' || !c.Fecha_inicio_tour) return;
-
-                    // Parsear Fechas (YYYY-MM-DD)
-                    const startParts = c.Fecha_inicio_tour.split('-');
-                    if (startParts.length !== 3) return;
-
-                    const startDate = new Date(startParts[0], startParts[1] - 1, startParts[2]);
-                    const duration = parseInt(c.Duracion_dias_tour) || 1;
-
-                    const endDate = new Date(startDate);
-                    endDate.setDate(endDate.getDate() + duration);
-
-                    // Ventana del forecast
-                    const windowStart = dates[0];
-                    const windowEnd = new Date(dates[4]);
-                    windowEnd.setDate(windowEnd.getDate() + 1);
-
-                    // Verificar solapamiento
-                    if (endDate <= windowStart || startDate >= windowEnd) return;
-
-                    // Generar Array de Datos (7 días)
-                    let hasActivity = false;
-                    const paxData = dates.map(date => {
-                        const dTime = date.getTime();
-                        const sTime = startDate.getTime();
-                        const eTime = endDate.getTime();
-
-                        if (dTime >= sTime && dTime < eTime) {
-                            hasActivity = true;
-                            return parseInt(c.PAX) || 1;
-                        }
-                        return 0;
-                    });
-
-                    if (!hasActivity) return;
-
-                    // Determinar Color y Label
-                    const tourName = c.Tour_interes || 'General';
-                    const color = getTourColor(tourName);
-
-                    // Crear Dataset Individual
-                    datasets.push({
-                        label: tourName,
-                        data: paxData,
-                        backgroundColor: color,
-                        hoverBackgroundColor: color.replace('55%)', '65%)'),
-                        borderRadius: 4,
-                        stack: 'stack1',
-                        barPercentage: 0.6,
-                        guestName: c.Nombre,
-                        guestWsp: c.Numero_whatsapp,
-                        guestPax: parseInt(c.PAX) || 1
-                    });
+                    return 0;
                 });
 
-                // --- 3. Renderizar Gráfico ---
-                chartRegistry.forecast = new Chart(ctx, {
-                    type: 'bar',
-                    data: {
-                        labels: labels,
-                        datasets: datasets
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: {
-                            legend: {
-                                position: 'top',
-                                align: 'start',
-                                labels: {
-                                    color: '#cbd5e1',
-                                    font: { size: 10 },
-                                    boxWidth: 10,
-                                    usePointStyle: true,
-                                    filter: function (item, chartData) {
-                                        const label = item.text;
-                                        const firstIndex = chartData.datasets.findIndex(ds => ds.label === label);
-                                        return item.datasetIndex === firstIndex;
-                                    }
-                                }
-                            },
-                            tooltip: {
-                                mode: 'nearest',
-                                intersect: true,
-                                backgroundColor: 'rgba(15, 23, 42, 0.9)',
-                                titleColor: '#f1f5f9',
-                                bodyColor: '#cbd5e1',
-                                borderColor: '#334155',
-                                borderWidth: 1,
-                                callbacks: {
-                                    title: (items) => {
-                                        if (items.length > 0) {
-                                            return items[0].dataset.guestName;
-                                        }
-                                        return '';
-                                    },
-                                    label: (context) => {
-                                        const ds = context.dataset;
-                                        return ` ${ds.label} (PAX: ${ds.guestPax})`;
-                                    }
+                if (!hasActivity) return;
+
+                // Determinar Color y Label
+                const tourName = c.Tour_interes || 'General';
+                const color = getTourColor(tourName);
+
+                // Crear Dataset Individual
+                datasets.push({
+                    label: tourName,
+                    data: paxData,
+                    backgroundColor: color,
+                    hoverBackgroundColor: color.replace('55%)', '65%)'),
+                    borderRadius: 4,
+                    stack: 'stack1',
+                    barPercentage: 0.6,
+                    guestName: c.Nombre,
+                    guestWsp: c.Numero_whatsapp,
+                    guestPax: parseInt(c.PAX) || 1
+                });
+            });
+
+            // --- 3. Renderizar Gráfico ---
+            chartRegistry.forecast = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: datasets
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                            align: 'start',
+                            labels: {
+                                color: '#cbd5e1',
+                                font: { size: 10 },
+                                boxWidth: 10,
+                                usePointStyle: true,
+                                filter: function (item, chartData) {
+                                    const label = item.text;
+                                    const firstIndex = chartData.datasets.findIndex(ds => ds.label === label);
+                                    return item.datasetIndex === firstIndex;
                                 }
                             }
                         },
-                        scales: {
-                            y: {
-                                stacked: true,
-                                beginAtZero: true,
-                                grid: { color: '#334155' },
-                                ticks: { stepSize: 1, precision: 0, color: '#94a3b8' },
-                                title: { display: true, text: 'PAX', color: '#64748b' }
-                            },
-                            x: {
-                                stacked: true,
-                                grid: { display: false },
-                                ticks: { color: '#94a3b8', font: { size: 11 } }
-                            }
-                        },
-                        interaction: {
+                        tooltip: {
                             mode: 'nearest',
-                            axis: 'x',
-                            intersect: true
+                            intersect: true,
+                            backgroundColor: 'rgba(15, 23, 42, 0.9)',
+                            titleColor: '#f1f5f9',
+                            bodyColor: '#cbd5e1',
+                            borderColor: '#334155',
+                            borderWidth: 1,
+                            callbacks: {
+                                title: (items) => {
+                                    if (items.length > 0) {
+                                        return items[0].dataset.guestName;
+                                    }
+                                    return '';
+                                },
+                                label: (context) => {
+                                    const ds = context.dataset;
+                                    return ` ${ds.label} (PAX: ${ds.guestPax})`;
+                                }
+                            }
                         }
+                    },
+                    scales: {
+                        y: {
+                            stacked: true,
+                            beginAtZero: true,
+                            grid: { color: '#334155' },
+                            ticks: { stepSize: 1, precision: 0, color: '#94a3b8' },
+                            title: { display: true, text: 'PAX', color: '#64748b' }
+                        },
+                        x: {
+                            stacked: true,
+                            grid: { display: false },
+                            ticks: { color: '#94a3b8', font: { size: 11 } }
+                        }
+                    },
+                    interaction: {
+                        mode: 'nearest',
+                        axis: 'x',
+                        intersect: true
                     }
-                });
+                }
+            });
 
-                console.log(`Forecast Rendered: ${datasets.length} active tourists.`);
-            }
+            console.log(`Forecast Rendered: ${datasets.length} active tourists.`);
+        }
     </script>
 </body>
 
