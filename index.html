@@ -829,20 +829,28 @@
         let charts = {};
 
         // --- INITIALIZATION ---
-        window.onload = async () => {
-            await Promise.all([
+        // --- INITIALIZATION ---
+        window.onload = () => {
+            // 1. Start fetching data in background (do not await)
+            Promise.all([
                 fetchData(SHEET_CSV_CONTACTOS, 'contactos'),
                 fetchData(SHEET_CSV_PAQUETES, 'paquetes'),
                 fetchData(SHEET_CSV_CIUDADES, 'ciudades')
-            ]);
+            ]).then(() => {
+                console.log("All data loaded.");
+                updateDashboard();
+            });
+
+            // 2. Initialize UI mechanisms immediately
             initUI();
             try {
                 setupTourInput();
             } catch (e) {
                 console.error("Setup Tour Input Failed:", e);
-                // Continue execution even if tour input setup fails
             }
-            updateDashboard();
+
+            // 3. Run Magic Link Check immediately (it has its own retry logic)
+            // This ensures feedback appears INSTANTLY to the user
             try {
                 checkUrlForMagicLink();
             } catch (e) {
@@ -886,17 +894,10 @@
                 }
 
                 const contact = state.contactos.find(c => {
-                    // Prioritize specific column if exists
-                    if (c.Numero_whatsapp) {
-                        const clean = c.Numero_whatsapp.replace(/\D/g, '').slice(-9);
-                        if (clean === cleanQuery) return true;
-                    }
-                    // Fallback to searching all values (in case column name differs)
-                    return Object.values(c).some(val => {
-                        if (typeof val !== 'string') return false;
-                        const cleanVal = val.replace(/\D/g, '').slice(-9);
-                        return cleanVal === cleanQuery && cleanVal.length === 9;
-                    });
+                    // Strict Match (Legacy Logic from revisa.html)
+                    if (!c.Numero_whatsapp) return false;
+                    const cleanContact = c.Numero_whatsapp.replace(/\D/g, '').slice(-9);
+                    return cleanContact === cleanQuery;
                 });
 
                 if (contact) {
@@ -906,7 +907,7 @@
                     // Small delay to allow view transition
                     setTimeout(() => {
                         openContactModal(contact.ID);
-                        // Clean URL after successful open to prevent re-opening on refresh
+                        // Clean URL after successful open but keep history state clean
                         const newUrl = window.location.protocol + "//" + window.location.host + window.location.pathname;
                         window.history.replaceState({ path: newUrl }, '', newUrl);
 
@@ -916,7 +917,6 @@
                     }, 500);
                 } else {
                     console.warn("No match found for", cleanQuery);
-                    // Only show error if we have data and really couldn't find it
                     if (state.contactos.length > 0) {
                         showToast(`No se encontró cliente con celular: ${cleanQuery}`, 'error');
                     }
@@ -2102,15 +2102,15 @@
             document.getElementById('view-' + viewName).classList.remove('hidden');
             document.getElementById('page-title').innerText = viewName === 'overview' ? 'Dashboard' : (viewName === 'form' ? 'Nuevo Contacto' : 'Base de Datos');
 
-            // Toggle Global Filter Visibility (Only for Overview)
+            // Toggle Global Filter            // GLOBAL FILTER VISIBILITY (FIXED)
             const globalFilter = document.getElementById('global-date-filter');
             if (globalFilter) {
                 if (viewName === 'overview') {
                     globalFilter.classList.remove('hidden');
-                    globalFilter.classList.add('md:flex');
+                    globalFilter.classList.add('md:flex'); // Restore flex layout
                 } else {
                     globalFilter.classList.add('hidden');
-                    globalFilter.classList.remove('md:flex');
+                    globalFilter.classList.remove('md:flex'); // Remove flex layout
                 }
             }
 
