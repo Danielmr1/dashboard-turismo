@@ -151,7 +151,7 @@
                     <i class="fas fa-bars text-xl"></i>
                 </button>
                 <h2 id="page-title" class="text-xl font-bold text-white tracking-tight">Dashboard <span
-                        class="text-xs text-indigo-400 font-normal">(v3.2)</span></h2>
+                        class="text-xs text-indigo-400 font-normal">(v3.0-restored)</span></h2>
             </div>
 
             <!-- GLOBAL DATE FILTER (Overview Only) -->
@@ -950,17 +950,7 @@
             async function refreshData() {
                 const btn = document.getElementById('refresh-icon');
                 btn.classList.add('animate-spin');
-
-                // Fix: Include Cities in refresh
-                await Promise.all([
-                    fetchData(SHEET_CSV_CONTACTOS, 'contactos'),
-                    fetchData(SHEET_CSV_PAQUETES, 'paquetes'),
-                    fetchData(SHEET_CSV_CIUDADES, 'ciudades')
-                ]);
-
-                // Re-init UI to populate selects with potentially new cities
-                initUI();
-
+                await Promise.all([fetchData(SHEET_CSV_CONTACTOS, 'contactos'), fetchData(SHEET_CSV_PAQUETES, 'paquetes')]);
                 updateDashboard();
                 btn.classList.remove('animate-spin');
                 showToast('Datos actualizados', 'success');
@@ -968,20 +958,15 @@
 
             // --- UI LOGIC ---
             function initUI() {
-                console.log("Initializing UI with Cities:", state.ciudades.length);
+                // Populate Tours Select - LEGACY REMOVED (Now using Multi-Select)
+                // const sel = document.getElementById('tour-select');
+                // if(sel) { ... }
 
-                // Populate Tours (Legacy hidden)
 
                 // Populate Cities (Filter, Modal, Form)
-                // Robust extraction: Check for 'ciudad', 'Ciudad', 'CIUDAD'
-                const cityOptions = state.ciudades.map(c => {
-                    return c.ciudad || c.Ciudad || c.CIUDAD || '';
-                }).filter(c => c && c.trim() !== '');
-
-                // Remove duplicates and sort
-                const uniqueCities = [...new Set(cityOptions)].sort();
-
-                console.log("Parsed Unique Cities:", uniqueCities);
+                const cityOptions = state.ciudades.map(c => c.ciudad).filter(c => c); // Extract city names
+                // Add 'Otro' if not present (optional, but good UX)
+                // User requested explicit list ending with Otro, assuming Sheet has it. If not, we can rely on Sheet.
 
                 const citySelects = ['filter-city', 'modal-ciudad', 'form-ciudad'];
 
@@ -993,29 +978,13 @@
                     let defaultTxt = (id === 'filter-city') ? 'Todas las Ciudades' : 'Selecciona Ciudad...';
                     let defaultVal = (id === 'filter-city') ? '' : '';
 
-                    // Keep existing selection if any (for refreshes)
-                    const currentVal = el.value;
+                    let html = `<option value="${defaultVal}" ${id !== 'filter-city' ? 'disabled selected' : ''}>${defaultTxt}</option>`;
 
-                    let html = `<option value="${defaultVal}" ${id !== 'filter-city' ? 'disabled' : ''}>${defaultTxt}</option>`;
-
-                    uniqueCities.forEach(city => {
+                    cityOptions.forEach(city => {
                         html += `<option value="${city}">${city}</option>`;
                     });
 
-                    // Add 'Otro' if not present
-                    if (!uniqueCities.includes('Otro')) {
-                        html += `<option value="Otro">Otro</option>`;
-                    }
-
                     el.innerHTML = html;
-
-                    // Restore selection if sensible
-                    if (currentVal && (uniqueCities.includes(currentVal) || currentVal === 'Otro')) {
-                        el.value = currentVal;
-                    } else if (id !== 'filter-city') {
-                        // Ensure modal select placeholder is selected if value is invalid
-                        el.value = defaultVal;
-                    }
                 });
             }
 
