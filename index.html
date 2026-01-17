@@ -135,6 +135,11 @@
                     class="fas fa-plus-circle text-xl w-6 text-center group-hover:scale-110 transition text-emerald-500"></i>
                 <span class="font-medium text-sm text-emerald-400">Nuevo Contacto</span>
             </a>
+            <a href="#" onclick="switchView('finance')" id="nav-finance"
+                class="sidebar-link flex items-center gap-4 px-3 py-3 rounded-xl text-slate-400 hover:text-amber-400 group">
+                <i class="fas fa-coins text-xl w-6 text-center group-hover:scale-110 transition text-amber-500"></i>
+                <span class="font-medium text-sm text-amber-400">Caja / Pagos</span>
+            </a>
         </nav>
 
         <div class="p-4 border-t border-slate-800">
@@ -721,6 +726,66 @@
                         </div>
                     </div>
 
+                    <!-- Finance Section (New) -->
+                    <div class="px-6 pb-6">
+                        <div class="bg-slate-950/50 rounded-xl border border-slate-700/50 overflow-hidden">
+                            <!-- Finance Header -->
+                            <div
+                                class="px-4 py-3 bg-slate-900 border-b border-slate-800 flex justify-between items-center">
+                                <h4 class="text-xs font-bold uppercase tracking-wider text-emerald-400">
+                                    <i class="fas fa-coins mr-1"></i> Estado de Cuenta
+                                </h4>
+                                <span onclick="alert('Pronto: Botón para guardar pago')"
+                                    class="text-[10px] bg-indigo-500/20 text-indigo-300 px-2 py-1 rounded cursor-pointer hover:bg-indigo-500/30 transition">
+                                    + Registrar Pago
+                                </span>
+                            </div>
+
+                            <!-- Finance Balances -->
+                            <div class="grid grid-cols-3 divide-x divide-slate-800 text-center py-4 bg-slate-900/30">
+                                <div>
+                                    <span
+                                        class="block text-[10px] text-slate-500 uppercase font-bold text-center">Pactado</span>
+                                    <span class="text-sm font-bold text-white block mt-1" id="fin-pactado">S/
+                                        0.00</span>
+                                </div>
+                                <div>
+                                    <span
+                                        class="block text-[10px] text-slate-500 uppercase font-bold text-center">Pagado</span>
+                                    <span class="text-sm font-bold text-emerald-400 block mt-1" id="fin-pagado">S/
+                                        0.00</span>
+                                </div>
+                                <div>
+                                    <span
+                                        class="block text-[10px] text-slate-500 uppercase font-bold text-center">Saldo</span>
+                                    <span class="text-sm font-bold text-slate-200 block mt-1" id="fin-saldo">S/
+                                        0.00</span>
+                                </div>
+                            </div>
+
+                            <!-- Finance History Table -->
+                            <div class="max-h-32 overflow-y-auto">
+                                <table class="w-full text-left text-[10px]">
+                                    <thead class="bg-slate-800/50 text-slate-500 sticky top-0">
+                                        <tr>
+                                            <th class="py-2 px-4 font-semibold">Fecha</th>
+                                            <th class="py-2 px-2 font-semibold">Tipo</th>
+                                            <th class="py-2 px-2 font-semibold">Método</th>
+                                            <th class="py-2 px-4 font-semibold text-right">Monto</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="fin-history-body" class="divide-y divide-slate-800 text-slate-300">
+                                        <!-- Populated via JS -->
+                                        <tr>
+                                            <td colspan="4" class="text-center py-3 italic text-slate-600">No hay
+                                                movimientos</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Footer -->
                     <div class="bg-slate-800/50 px-6 py-4 flex justify-end gap-3 border-t border-slate-700">
                         <!-- View Mode Buttons -->
@@ -752,6 +817,91 @@
                         </div>
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- VIEW: CAJA / FINANZAS (New) -->
+    <div id="view-finance" class="view-section hidden space-y-6">
+        <!-- Finance Header -->
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <div>
+                <h2
+                    class="text-3xl font-bold bg-gradient-to-r from-amber-400 to-orange-500 bg-clip-text text-transparent">
+                    Caja y Movimientos
+                </h2>
+                <p class="text-slate-400 text-sm">Control de ingresos, adelantos y saldos.</p>
+            </div>
+            <button onclick="exportFinanceReport()"
+                class="bg-slate-800 hover:bg-slate-700 text-amber-400 border border-amber-500/30 px-4 py-2 rounded-xl flex items-center gap-2 transition hover:shadow-lg shadow-amber-900/20 font-medium">
+                <i class="fas fa-file-excel"></i> Exportar Reporte
+            </button>
+        </div>
+
+        <!-- Finance KPIs -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <!-- Ingresos Hoy -->
+            <div
+                class="bg-slate-900 border border-slate-800 rounded-2xl p-5 relative overflow-hidden group hover:border-amber-500/30 transition">
+                <div class="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition">
+                    <i class="fas fa-cash-register text-5xl text-amber-500"></i>
+                </div>
+                <p class="text-slate-400 text-xs font-bold uppercase tracking-wider">Ingresos Hoy</p>
+                <h3 class="text-3xl font-bold text-white mt-1" id="kpi-fin-today">S/ 0.00</h3>
+                <div class="flex items-center gap-1 mt-2 text-xs text-slate-500">
+                    <span class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
+                    En tiempo real
+                </div>
+            </div>
+
+            <!-- Total Mes -->
+            <div
+                class="bg-slate-900 border border-slate-800 rounded-2xl p-5 relative overflow-hidden group hover:border-emerald-500/30 transition">
+                <div class="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition">
+                    <i class="fas fa-calendar-check text-5xl text-emerald-500"></i>
+                </div>
+                <p class="text-slate-400 text-xs font-bold uppercase tracking-wider">Cobrado (Mes)</p>
+                <h3 class="text-3xl font-bold text-white mt-1" id="kpi-fin-month">S/ 0.00</h3>
+                <p class="text-xs text-slate-500 mt-2">Mes actual</p>
+            </div>
+
+            <!-- Deuda Total (Por Cobrar) -->
+            <div
+                class="bg-slate-900 border border-slate-800 rounded-2xl p-5 relative overflow-hidden group hover:border-red-500/30 transition">
+                <div class="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition">
+                    <i class="fas fa-hand-holding-usd text-5xl text-red-500"></i>
+                </div>
+                <p class="text-slate-400 text-xs font-bold uppercase tracking-wider">Por Cobrar (Total)</p>
+                <h3 class="text-3xl font-bold text-white mt-1" id="kpi-fin-debt">S/ 0.00</h3>
+                <p class="text-xs text-emerald-400 mt-2 cursor-help" title="Suma de saldos de turistas activos">
+                    <i class="fas fa-info-circle"></i> Saldo Pendiente
+                </p>
+            </div>
+        </div>
+
+        <!-- Finance Table -->
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
+            <div class="px-6 py-4 border-b border-slate-800 flex justify-between items-center">
+                <h3 class="font-bold text-lg text-white">Últimos Movimientos</h3>
+                <div class="text-xs text-slate-500 italic">Muestra últimos 100 pagos</div>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                    <thead class="bg-slate-800/50 text-slate-400 text-xs uppercase font-bold sticky top-0">
+                        <tr>
+                            <th class="p-4">Fecha</th>
+                            <th class="p-4">Cliente</th>
+                            <th class="p-4">Tour (Auto)</th>
+                            <th class="p-4">PAX</th>
+                            <th class="p-4">Método</th>
+                            <th class="p-4">Tipo</th>
+                            <th class="p-4 text-right">Monto</th>
+                        </tr>
+                    </thead>
+                    <tbody id="finance-table-body" class="text-sm divide-y divide-slate-800/50">
+                        <!-- Populated by JS -->
+                    </tbody>
+                </table>
             </div>
         </div>
     </div>
@@ -806,27 +956,24 @@
     <div id="toast-container" class="fixed bottom-4 right-4 z-[9999] flex flex-col gap-2 pointer-events-none"></div>
 
     <script>
-        // --- CONSTANTS 
-        const SHEET_CSV_CONTACTOS = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRBnkhcj5Gp9QMwMJmr1p1z6gcw3wShIC247dJ3V3qzwkEwkZEwJqroj3LIh826G4CaPBdZQAEIGoD0/pub?gid=0&single=true&output=csv';
-        const SHEET_CSV_PAQUETES = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRBnkhcj5Gp9QMwMJmr1p1z6gcw3wShIC247dJ3V3qzwkEwkZEwJqroj3LIh826G4CaPBdZQAEIGoD0/pub?gid=245309544&single=true&output=csv';
-        // Using direct gviz URL for the new tab as it might not be published to web as 'pub' yet, or just for consistency with manual GID provided.
-        // Actually, for public sheets, the /pub?gid=... format is often used for 'Published to Web'.
-        // But the user gave me a GID from the edit URL. The safest and most immediate way for private-ish sheets that are shared with "Anyone with link" is often gviz or the export call.
-        // Let's use the export format which consistently works for GIDs if the sheet is open.
-        // https://docs.google.com/spreadsheets/d/[ID]/export?format=csv&gid=[GID]
-        // But the existing ones use /pub? which implies "File > Share > Publish to Web".
-        // The user might not have "Published to Web" the specific tab.
-        // I'll try the /export format first which is usually robust if the sheet is generally public/shared.
-        // ID: 16qnWmfEMjb0OJ_I_xMypB279m_a5jOg1V1l1sqbCcNA
-        // GID: 127481278
-        const SHEET_CSV_CIUDADES = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRBnkhcj5Gp9QMwMJmr1p1z6gcw3wShIC247dJ3V3qzwkEwkZEwJqroj3LIh826G4CaPBdZQAEIGoD0/pub?gid=127481278&single=true&output=csv';
-        const WEBHOOK_URL = 'https://nonisotropic-ungrindable-kristie.ngrok-free.dev/webhook/update-dashboard'; // Public Tunnel URL for Netlify
+        // --- DATA SOURCES (Direct CSV Links) ---
+        const DATA_SOURCES = {
+            contactos: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRBnkhcj5Gp9QMwMJmr1p1z6gcw3wShIC247dJ3V3qzwkEwkZEwJqroj3LIh826G4CaPBdZQAEIGoD0/pub?gid=0&single=true&output=csv',
+            paquetes: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRBnkhcj5Gp9QMwMJmr1p1z6gcw3wShIC247dJ3V3qzwkEwkZEwJqroj3LIh826G4CaPBdZQAEIGoD0/pub?gid=245309544&single=true&output=csv',
+            encargado: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRBnkhcj5Gp9QMwMJmr1p1z6gcw3wShIC247dJ3V3qzwkEwkZEwJqroj3LIh826G4CaPBdZQAEIGoD0/pub?gid=1771857998&single=true&output=csv',
+            ciudades: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRBnkhcj5Gp9QMwMJmr1p1z6gcw3wShIC247dJ3V3qzwkEwkZEwJqroj3LIh826G4CaPBdZQAEIGoD0/pub?gid=127481278&single=true&output=csv',
+            mensajes: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRBnkhcj5Gp9QMwMJmr1p1z6gcw3wShIC247dJ3V3qzwkEwkZEwJqroj3LIh826G4CaPBdZQAEIGoD0/pub?gid=630441712&single=true&output=csv',
+            pagos: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRBnkhcj5Gp9QMwMJmr1p1z6gcw3wShIC247dJ3V3qzwkEwkZEwJqroj3LIh826G4CaPBdZQAEIGoD0/pub?gid=1616412971&single=true&output=csv'
+        };
+
+        const WEBHOOK_URL = 'https://nonisotropic-ungrindable-kristie.ngrok-free.dev/webhook/update-dashboard';
 
         // --- STATE ---
         let state = {
             contactos: [],
             paquetes: [],
-            ciudades: [], // Added cities state
+            ciudades: [],
+            pagos: [], // Added payments state
             filteredContactos: [],
             currentPage: 1,
             rowsPerPage: 10,
@@ -842,9 +989,10 @@
         window.onload = () => {
             // 1. Start fetching data in background (do not await)
             Promise.all([
-                fetchData(SHEET_CSV_CONTACTOS, 'contactos'),
-                fetchData(SHEET_CSV_PAQUETES, 'paquetes'),
-                fetchData(SHEET_CSV_CIUDADES, 'ciudades')
+                fetchData(DATA_SOURCES.contactos, 'contactos'),
+                fetchData(DATA_SOURCES.paquetes, 'paquetes'),
+                fetchData(DATA_SOURCES.ciudades, 'ciudades'),
+                fetchData(DATA_SOURCES.pagos, 'pagos') // Fetch Payments too
             ]).then(() => {
                 console.log("All data loaded.");
                 initUI(); // MOVED HERE: Only init UI when data is ready
@@ -1053,7 +1201,9 @@
 
             updateKPIs();
             renderCharts();
+            renderCharts();
             renderTablePreview();
+            renderFinanceView(); // New Finance Logic
             applyFilters();
         }
 
@@ -1652,6 +1802,60 @@
             document.getElementById('modal-origen').innerText = `Origen: ${c.Origen || 'Desconocido'}`;
             document.getElementById('modal-registro').innerText = `Registrado: ${c.Fecha_registro ? c.Fecha_registro.replace('T', ' ').split('.')[0] : '-'}`;
 
+            // --- FINANCE LOGIC (New) ---
+            const pactado = parseFloat(c.Monto_cotizado) || 0;
+
+            // Filter payments for this contact (ID_Reserva matches c.ID)
+            const payments = state.pagos.filter(p => p.ID_Reserva === c.ID);
+
+            // Calculate Total Paid (Sum of Monto)
+            const pagado = payments.reduce((sum, p) => sum + (parseFloat(p.Monto) || 0), 0);
+
+            const saldo = pactado - pagado;
+
+            // Update UI Balances
+            document.getElementById('fin-pactado').innerText = `S/ ${pactado.toFixed(2)}`;
+            document.getElementById('fin-pagado').innerText = `S/ ${pagado.toFixed(2)}`;
+
+            const elSaldo = document.getElementById('fin-saldo');
+            elSaldo.innerText = `S/ ${saldo.toFixed(2)}`;
+
+            // Color Logic: Red if Debt > 0, Green/Slate if settled
+            if (saldo > 0.1) {
+                elSaldo.className = 'text-sm font-bold text-red-500 block mt-1';
+            } else if (saldo < -0.1) {
+                elSaldo.className = 'text-sm font-bold text-blue-400 block mt-1'; // Overpaid/Credit
+            } else {
+                elSaldo.className = 'text-sm font-bold text-emerald-500 block mt-1'; // Settled
+            }
+
+            // Render History Table
+            const tbody = document.getElementById('fin-history-body');
+            tbody.innerHTML = '';
+
+            if (payments.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="4" class="text-center py-3 italic text-slate-600">No hay movimientos</td></tr>';
+            } else {
+                // Sort by Date Descending
+                payments.sort((a, b) => new Date(b.Fecha) - new Date(a.Fecha));
+
+                payments.forEach(p => {
+                    const monto = parseFloat(p.Monto) || 0;
+                    const isNeg = monto < 0;
+                    const color = isNeg ? 'text-red-400' : 'text-emerald-400';
+                    const sign = isNeg ? '' : '+'; // Negative already has -
+
+                    tbody.innerHTML += `
+                        <tr class="hover:bg-slate-800/30 transition">
+                            <td class="py-2 px-4 text-slate-400">${p.Fecha || '-'}</td>
+                            <td class="py-2 px-2 text-white">${p.Tipo || '-'}</td>
+                            <td class="py-2 px-2 text-slate-400 text-[9px] uppercase tracking-wide">${p.Metodo || '-'}</td>
+                            <td class="py-2 px-4 text-right font-mono font-bold ${color}">${sign}S/${monto.toFixed(2)}</td>
+                        </tr>
+                    `;
+                });
+            }
+
             // Show Modal
             const modal = document.getElementById('contact-modal');
             const backdrop = document.getElementById('modal-backdrop');
@@ -2146,6 +2350,138 @@
             closeExportModal();
         }
 
+
+        // --- FINANCE LOGIC (New) ---
+        function renderFinanceView() {
+            // KPIs
+            const todayStr = new Date().toLocaleString('sv-SE', { timeZone: 'America/Lima' }).split('T')[0];
+            const currentMonth = todayStr.substring(0, 7); // YYYY-MM
+
+            // 1. Ingresos Hoy (From Pagos)
+            const incomeToday = state.pagos
+                .filter(p => (p.Fecha || '').startsWith(todayStr) && parseFloat(p.Monto) > 0)
+                .reduce((sum, p) => sum + (parseFloat(p.Monto) || 0), 0);
+
+            document.getElementById('kpi-fin-today').innerText = `S/ ${incomeToday.toFixed(2)}`;
+
+            // 2. Cobrado Mes (From Pagos - All positive payments this month)
+            const incomeMonth = state.pagos
+                .filter(p => (p.Fecha || '').startsWith(currentMonth))
+                .reduce((sum, p) => sum + (parseFloat(p.Monto) || 0), 0);
+
+            document.getElementById('kpi-fin-month').innerText = `S/ ${incomeMonth.toFixed(2)}`;
+
+            // 3. Deuda Total (Por Cobrar from Active Tourists)
+            // Logic: Iterate all contacts -> Calculate Pactado - Pagado -> Sum positive debts
+            const totalDebt = state.contactos.reduce((sum, c) => {
+                if (c.Estado_contacto === 'Cancelado') return sum;
+
+                const pactado = parseFloat(c.Monto_cotizado) || 0;
+                // Find payments for this contact
+                const paid = state.pagos
+                    .filter(p => p.ID_Reserva === c.ID)
+                    .reduce((s, p) => s + (parseFloat(p.Monto) || 0), 0);
+
+                const debt = pactado - paid;
+                return sum + (debt > 0 ? debt : 0);
+            }, 0);
+
+            document.getElementById('kpi-fin-debt').innerText = `S/ ${totalDebt.toLocaleString('es-PE', { minimumFractionDigits: 2 })}`;
+
+            // 4. Render Main Table (Last 100)
+            const tbody = document.getElementById('finance-table-body');
+            tbody.innerHTML = '';
+
+            // Join Data
+            const enrichedPagos = state.pagos.map(p => {
+                const contact = state.contactos.find(c => c.ID === p.ID_Reserva) || {};
+                return {
+                    ...p,
+                    Cliente: contact.Nombre || 'Desconocido',
+                    Tour: contact.Tour_interes || '-',
+                    PAX: contact.PAX || '-'
+                };
+            });
+
+            // Sort Descending Date
+            enrichedPagos.sort((a, b) => new Date(b.Fecha || 0) - new Date(a.Fecha || 0));
+            const last100 = enrichedPagos.slice(0, 100);
+
+            if (last100.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" class="text-center py-8 text-slate-600 italic">No hay registros de pagos</td></tr>';
+            }
+
+            last100.forEach(p => {
+                const amount = parseFloat(p.Monto) || 0;
+                const isNeg = amount < 0; // Refund
+                const color = isNeg ? 'text-red-400' : 'text-emerald-400';
+
+                tbody.innerHTML += `
+                    <tr class="hover:bg-slate-800/20 border-b border-slate-800/50 transition">
+                        <td class="p-4 text-slate-400 whitespace-nowrap">${p.Fecha}</td>
+                        <td class="p-4 font-bold text-white relative group cursor-help">
+                            ${p.Cliente}
+                            <div class="hidden group-hover:block absolute bottom-full left-0 bg-black text-xs p-1 rounded border border-slate-700 whitespace-nowrap z-20">ID: ${p.ID_Reserva}</div>
+                        </td>
+                        <td class="p-4 text-slate-300 text-xs">${p.Tour}</td>
+                        <td class="p-4 text-slate-300 text-center">${p.PAX}</td>
+                        <td class="p-4 text-slate-400 text-xs uppercase tracking-wide">${p.Metodo || '-'}</td>
+                        <td class="p-4 text-white text-xs bg-slate-800/50 rounded px-2 py-1 mx-2 inline-block text-center min-w-[80px]">${p.Tipo || '-'}</td>
+                        <td class="p-4 text-right font-mono font-bold ${color}">S/ ${amount.toFixed(2)}</td>
+                    </tr>
+                `;
+            });
+        }
+
+        // --- EXPORT FINANCE REPORT (Smart Join) ---
+        function exportFinanceReport() {
+            if (!state.pagos || state.pagos.length === 0) {
+                showToast('No hay datos de pagos para exportar', 'warning');
+                return;
+            }
+
+            // JOIN Logic: Pagos + Contact Data including Tour/PAX
+            const exportData = state.pagos.map(p => {
+                const contact = state.contactos.find(c => c.ID === p.ID_Reserva) || {};
+                return {
+                    'ID Pago': p.ID_Pago || '-',
+                    'Fecha': p.Fecha || '-',
+                    'ID Reserva': p.ID_Reserva || '-',
+                    'Cliente': contact.Nombre || 'Desconocido', // Added
+                    'Tour': contact.Tour_interes || '-',       // Added (Requested)
+                    'PAX': contact.PAX || '-',                 // Added (Requested)
+                    'Método': p.Metodo || '-',
+                    'Tipo': p.Tipo || '-',
+                    'Monto': parseFloat(p.Monto) || 0,
+                    'Notas': p.Notas || '-'
+                };
+            });
+
+            // SheetJS
+            const ws = XLSX.utils.json_to_sheet(exportData);
+
+            // Adjust Columns width
+            ws['!cols'] = [
+                { wch: 10 }, // ID Pago
+                { wch: 12 }, // Fecha
+                { wch: 10 }, // ID Res
+                { wch: 25 }, // Cliente
+                { wch: 25 }, // Tour
+                { wch: 5 },  // PAX
+                { wch: 10 }, // Metodo
+                { wch: 10 }, // Tipo
+                { wch: 10 }, // Monto
+                { wch: 20 }  // Notas
+            ];
+
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Caja_Movimientos");
+
+            const dateStr = new Date().toISOString().split('T')[0];
+            XLSX.writeFile(wb, `Reporte_Caja_Completo_${dateStr}.xlsx`);
+            showToast('✅ Reporte de Caja (con Tours) descargado', 'success');
+        }
+
         // --- MOBILE SIDEBAR TOGGLE ---
         function toggleSidebar() {
             const sidebar = document.getElementById('sidebar');
@@ -2167,20 +2503,41 @@
 
         // --- NAVIGATION & UTILS ---
         function switchView(viewName) {
-            const views = ['overview', 'leads', 'form'];
+            const views = ['overview', 'leads', 'form', 'finance']; // Added finance
             views.forEach(v => {
-                document.getElementById('view-' + v).classList.add('hidden');
-                document.getElementById('nav-' + v).classList.remove('active', 'bg-indigo-500/10', 'text-indigo-400', 'border-indigo-500', 'border-r-3');
-                // Reset basic style
-                document.getElementById('nav-' + v).classList.add('text-slate-400');
+                const el = document.getElementById('view-' + v);
+                if (el) el.classList.add('hidden');
+
+                const nav = document.getElementById('nav-' + v);
+                if (nav) {
+                    nav.classList.remove('active', 'bg-indigo-500/10', 'text-indigo-400', 'border-indigo-500', 'border-r-3');
+                    nav.classList.add('text-slate-400');
+                    // Special case clear for finance amber color if needed, but simple reset is ok
+                    if (v === 'finance') nav.classList.remove('text-amber-400');
+                }
             });
 
             const activeNav = document.getElementById('nav-' + viewName);
-            activeNav.classList.add('active', 'text-indigo-400');
-            activeNav.classList.remove('text-slate-400');
+            if (activeNav) {
+                // Special style for Finance
+                if (viewName === 'finance') {
+                    activeNav.classList.add('active', 'text-amber-400');
+                    activeNav.classList.remove('text-slate-400');
+                } else {
+                    activeNav.classList.add('active', 'text-indigo-400');
+                    activeNav.classList.remove('text-slate-400');
+                }
+            }
 
-            document.getElementById('view-' + viewName).classList.remove('hidden');
-            document.getElementById('page-title').innerText = viewName === 'overview' ? 'Dashboard' : (viewName === 'form' ? 'Nuevo Contacto' : 'Base de Datos');
+            const visibleView = document.getElementById('view-' + viewName);
+            if (visibleView) visibleView.classList.remove('hidden');
+
+            let title = 'Dashboard';
+            if (viewName === 'leads') title = 'Base de Datos';
+            if (viewName === 'form') title = 'Nuevo Contacto';
+            if (viewName === 'finance') title = 'Caja y Finanzas';
+
+            document.getElementById('page-title').innerText = title;
 
             // Toggle Global Filter            // GLOBAL FILTER VISIBILITY (FIXED)
             const globalFilter = document.getElementById('global-date-filter');
