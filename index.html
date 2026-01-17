@@ -3033,4 +3033,58 @@
     </script>
 </body>
 
+</script>
+<script>
+    // --- PATCH: FIX PAYMENT MODAL ID EXTRACTION ---
+    // Overriding the previous function that had issues with ID format
+    function openPaymentModal(contactId = null) {
+        console.log("Opening Payment Modal (Patched)...");
+
+        let finalId = contactId;
+        if (!finalId) {
+            const el = document.getElementById('modal-id');
+            if (el) {
+                // Robust extraction: Remove "ID:", "C-", whitespace
+                // Example: "ID: C-145" -> "C-145"
+                let text = el.innerText;
+                finalId = text.replace(/ID:\s*/i, '').trim();
+            }
+        }
+
+        console.log("Extracted CONTACT ID:", finalId);
+
+        if (!finalId || finalId === '-' || finalId.length < 2) {
+            console.error("Invalid Contact ID Found");
+            showToast("Error: Identifica primero al contacto", "error");
+            return;
+        }
+
+        // Set ID in Payment Modal
+        document.getElementById('pay-contact-id').innerText = finalId;
+        document.getElementById('pay-id-hidden').value = finalId;
+
+        // Set Date to Today
+        const today = new Date().toISOString().split('T')[0];
+        document.getElementById('pay-fecha').value = today;
+
+        // Reset Fields
+        document.getElementById('pay-monto').value = '';
+        document.getElementById('pay-notas').value = '';
+        document.getElementById('pay-metodo').value = 'Yape/Plin';
+        document.getElementById('pay-tipo').value = 'Adelanto';
+
+        // Show Modal
+        const modal = document.getElementById('payment-modal');
+        const backdrop = document.getElementById('payment-backdrop');
+        const panel = document.getElementById('payment-panel');
+
+        modal.classList.remove('hidden');
+        setTimeout(() => {
+            backdrop.classList.remove('opacity-0');
+            panel.classList.remove('opacity-0', 'scale-95', 'translate-y-4');
+        }, 10);
+    }
+</script>
+</body>
+
 </html>
