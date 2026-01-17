@@ -16,15 +16,20 @@
 
     <!-- FONTS -->
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;700;900&display=swap" rel="stylesheet">
-    extend: {
-    colors: {
-    slate: { 850: '#151f32', 900: '#0f172a', 950: '#020617' },
-    primary: { 500: '#6366f1', 600: '#4f46e5' }
-    },
-    fontFamily: { sans: ['Inter', 'sans-serif'] }
-    }
-    }
-    }
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        slate: { 850: '#151f32', 900: '#0f172a', 950: '#020617' },
+                        primary: { 500: '#6366f1', 600: '#4f46e5' }
+                    },
+                    fontFamily: { sans: ['Inter', 'sans-serif'] }
+                }
+            }
+        }
+    </script>
     </script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
