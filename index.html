@@ -8,19 +8,23 @@
 
     <!-- LIBRERÍAS EXTERNAS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        tailwind.config = {
-            darkMode: 'class',
-            theme: {
-                extend: {
-                    colors: {
-                        slate: { 850: '#151f32', 900: '#0f172a', 950: '#020617' },
-                        primary: { 500: '#6366f1', 600: '#4f46e5' }
-                    },
-                    fontFamily: { sans: ['Inter', 'sans-serif'] }
-                }
-            }
-        }
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- SheetJS for Excel Export -->
+    <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+
+    <!-- FONTS -->
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+    extend: {
+    colors: {
+    slate: { 850: '#151f32', 900: '#0f172a', 950: '#020617' },
+    primary: { 500: '#6366f1', 600: '#4f46e5' }
+    },
+    fontFamily: { sans: ['Inter', 'sans-serif'] }
+    }
+    }
+    }
     </script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
@@ -167,6 +171,12 @@
             </div>
 
             <div class="flex items-center gap-4">
+                <button onclick="exportDailyReport()"
+                    class="hidden md:flex items-center gap-2 px-3 py-1 text-xs font-bold rounded-md bg-emerald-600 hover:bg-emerald-500 text-white transition shadow-lg shadow-emerald-900/20">
+                    <i class="fas fa-file-excel"></i>
+                    <span>Exportar Hoy</span>
+                </button>
+
                 <button onclick="refreshData()"
                     class="text-slate-400 hover:text-white transition transform hover:rotate-180 duration-500"
                     title="Actualizar Datos">
@@ -2399,6 +2409,77 @@
             });
 
             console.log(`Forecast Rendered: ${datasets.length} active tourists.`);
+        }
+
+        // --- EXPORT TO EXCEL FEATURE ---
+        function exportDailyReport() {
+            if (!state.contactos || state.contactos.length === 0) {
+                showToast("No hay datos para exportar", "error");
+                return;
+            }
+
+            // Get local date string YYYY-MM-DD to filter "Today's" Records
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const day = String(now.getDate()).padStart(2, '0');
+            const todayStr = `${year}-${month}-${day}`;
+
+            console.log("Exporting for date:", todayStr);
+
+            // Filter contacts registered TODAY
+            const dailyContacts = state.contactos.filter(c => {
+                if (!c.Fecha_registro) return false;
+                // Check if starts with today's date (YYYY-MM-DD...)
+                return c.Fecha_registro.startsWith(todayStr);
+            });
+
+            if (dailyContacts.length === 0) {
+                showToast(`No hay ventas/registros con fecha ${todayStr}`, "warning");
+                return;
+            }
+
+            // Prepare Data columns
+            const exportData = dailyContacts.map(c => ({
+                ID: c.ID,
+                Nombre: c.Nombre,
+                Celular: c.Numero_whatsapp,
+                Ciudad: c.Ciudad_contacto,
+                Tours: c.Tour_interes,
+                PAX: c.PAX,
+                Monto: c.Monto_cotizado,
+                Estado: c.Estado_contacto,
+                Fecha: c.Fecha_registro,
+                Notas: c.Notas
+            }));
+
+            // Create Worksheet
+            const ws = XLSX.utils.json_to_sheet(exportData);
+
+            // Adjust Column Widths
+            const wscols = [
+                { wch: 10 }, // ID
+                { wch: 25 }, // Nombre
+                { wch: 15 }, // Celular
+                { wch: 15 }, // Ciudad
+                { wch: 30 }, // Tours
+                { wch: 5 },  // PAX
+                { wch: 10 }, // Monto
+                { wch: 15 }, // Estado
+                { wch: 20 }, // Fecha
+                { wch: 30 }  // Notas
+            ];
+            ws['!cols'] = wscols;
+
+            // Create Workbook
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Reporte Diario");
+
+            // Export File
+            const fileName = `Reporte_Ventas_${todayStr}.xlsx`;
+            XLSX.writeFile(wb, fileName);
+
+            showToast(`Reporte descargado: ${fileName}`, "success");
         }
     </script>
 </body>
