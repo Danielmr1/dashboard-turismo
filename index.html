@@ -821,7 +821,7 @@
                                 <h4 class="text-xs font-bold uppercase tracking-wider text-emerald-400">
                                     <i class="fas fa-coins mr-1"></i> Estado de Cuenta
                                 </h4>
-                                <span onclick="alert('Pronto: Botón para guardar pago')"
+                                <span onclick="openPaymentModal()"
                                     class="text-[10px] bg-indigo-500/20 text-indigo-300 px-2 py-1 rounded cursor-pointer hover:bg-indigo-500/30 transition">
                                     + Registrar Pago
                                 </span>
@@ -952,6 +952,97 @@
             <button onclick="closeExportModal()" class="absolute top-4 right-4 text-slate-500 hover:text-white">
                 <i class="fas fa-times"></i>
             </button>
+        </div>
+    </div>
+
+    <!-- PAYMENT MODAL (New) -->
+    <div id="payment-modal" class="hidden fixed inset-0 z-[70] flex items-center justify-center">
+        <!-- Backdrop -->
+        <div id="payment-backdrop"
+            class="absolute inset-0 bg-slate-950/90 backdrop-blur-md transition-opacity opacity-0"></div>
+
+        <!-- Panel -->
+        <div id="payment-panel"
+            class="relative bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-sm p-6 shadow-2xl transform transition-all scale-95 opacity-0 translate-y-4">
+            <div class="flex justify-between items-center mb-6 border-b border-slate-800 pb-4">
+                <div>
+                    <h3 class="text-xl font-bold text-white"><i class="fas fa-coins text-amber-500 mr-2"></i>Registrar
+                        Pago</h3>
+                    <p class="text-xs text-slate-400 mt-1">Asociado a: <span id="pay-contact-id"
+                            class="font-mono text-indigo-400 font-bold">C-XXXXXX</span></p>
+                </div>
+                <button onclick="closePaymentModal()" class="text-slate-500 hover:text-white transition">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+
+            <form id="payment-form" onsubmit="event.preventDefault(); submitPayment();" class="space-y-4">
+                <!-- Hidden Contact ID -->
+                <input type="hidden" id="pay-id-hidden">
+
+                <!-- Monto -->
+                <div>
+                    <label class="block text-xs font-bold text-slate-400 uppercase mb-1">Monto (S/)</label>
+                    <div class="relative">
+                        <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500">S/</span>
+                        <input type="number" step="0.01" id="pay-monto" required
+                            class="w-full bg-slate-800 border border-slate-700 rounded-xl py-3 pl-8 pr-4 text-white font-bold text-lg focus:border-amber-500 focus:ring-1 focus:ring-amber-500 outline-none transition"
+                            placeholder="0.00">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <!-- Método -->
+                    <div>
+                        <label class="block text-xs font-bold text-slate-400 uppercase mb-1">Método</label>
+                        <select id="pay-metodo" required
+                            class="w-full bg-slate-800 border border-slate-700 rounded-xl py-2 px-3 text-sm text-white focus:border-indigo-500 outline-none appearance-none">
+                            <option value="Yape/Plin">Yape / Plin</option>
+                            <option value="BCP">BCP</option>
+                            <option value="Interbank">Interbank</option>
+                            <option value="BBVA">BBVA</option>
+                            <option value="Efectivo">Efectivo</option>
+                            <option value="Tarjeta">Tarjeta (+5%)</option>
+                            <option value="Western">Western U.</option>
+                            <option value="Web">Web / Link</option>
+                        </select>
+                    </div>
+
+                    <!-- Tipo -->
+                    <div>
+                        <label class="block text-xs font-bold text-slate-400 uppercase mb-1">Tipo</label>
+                        <select id="pay-tipo" required
+                            class="w-full bg-slate-800 border border-slate-700 rounded-xl py-2 px-3 text-sm text-white focus:border-emerald-500 outline-none appearance-none">
+                            <option value="Adelanto">Adelanto</option>
+                            <option value="Total">Pago Total</option>
+                            <option value="Liquidación">Liquidación (Saldo)</option>
+                            <option value="Devolución">Devolución</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Fecha (Hidden Default Today) -->
+                <!-- We can auto-set this in JS, no need for user input unless backdating needed. Let's keep it simple for now, auto-today. -->
+
+                <!-- Notas -->
+                <div>
+                    <label class="block text-xs font-bold text-slate-400 uppercase mb-1">Notas (Opcional)</label>
+                    <textarea id="pay-notas" rows="2"
+                        class="w-full bg-slate-800 border border-slate-700 rounded-xl py-2 px-3 text-sm text-white focus:border-indigo-500 outline-none resize-none"
+                        placeholder="Nro operación, referencia..."></textarea>
+                </div>
+
+                <div class="pt-4 flex gap-3">
+                    <button type="button" onclick="closePaymentModal()"
+                        class="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold py-3 rounded-xl transition">
+                        Cancelar
+                    </button>
+                    <button type="submit"
+                        class="flex-1 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-white font-bold py-3 rounded-xl shadow-lg shadow-amber-900/40 transition">
+                        Guardar Pago
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
 
@@ -2840,6 +2931,104 @@
             XLSX.writeFile(wb, fileName);
 
             showToast(`Reporte descargado: ${fileName}`, "success");
+        }
+
+        // --- PAYMENT MODAL LOGIC (New) ---
+        function openPaymentModal(contactId = null) {
+            // If contactId is passed (e.g. from table or direct link), use it.
+            // If called from ContactModal, we might need to grab the current ID from there.
+
+            // For now, let's assume it's called from the "Registrar Pago" button inside the Contact Modal
+            // We can grab the ID from the text element in the contact modal
+            let finalId = contactId;
+            if (!finalId) {
+                const modalIdText = document.getElementById('modal-id').innerText;
+                finalId = modalIdText.replace('ID: ', '').trim();
+            }
+
+            if (!finalId || finalId === '-') {
+                showToast("Error: No se pudo identificar el contacto", "error");
+                return;
+            }
+
+            // Set ID in Payment Modal
+            document.getElementById('pay-contact-id').innerText = finalId;
+            document.getElementById('pay-id-hidden').value = finalId; // Allow simple ID without prefix for internal logic if needed
+
+            // Set Date to Today default
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('pay-fecha').value = today;
+
+            // Reset other fields
+            document.getElementById('pay-monto').value = '';
+            document.getElementById('pay-notas').value = '';
+            document.getElementById('pay-metodo').value = 'Yape/Plin';
+            document.getElementById('pay-tipo').value = 'Adelanto';
+
+            // Show Modal
+            const modal = document.getElementById('payment-modal');
+            const backdrop = document.getElementById('payment-backdrop');
+            const panel = document.getElementById('payment-panel');
+
+            modal.classList.remove('hidden');
+            // Animate in
+            setTimeout(() => {
+                backdrop.classList.remove('opacity-0');
+                panel.classList.remove('opacity-0', 'scale-95', 'translate-y-4');
+            }, 10);
+        }
+
+        function closePaymentModal() {
+            const modal = document.getElementById('payment-modal');
+            const backdrop = document.getElementById('payment-backdrop');
+            const panel = document.getElementById('payment-panel');
+
+            // Animate out
+            backdrop.classList.add('opacity-0');
+            panel.classList.add('opacity-0', 'scale-95', 'translate-y-4');
+
+            setTimeout(() => {
+                modal.classList.add('hidden');
+            }, 300);
+        }
+
+        function submitPayment() {
+            // Gather Data
+            const id = document.getElementById('pay-id-hidden').value;
+            const monto = document.getElementById('pay-monto').value;
+            const metodo = document.getElementById('pay-metodo').value;
+            const tipo = document.getElementById('pay-tipo').value;
+            const fecha = document.getElementById('pay-fecha').value;
+            const notas = document.getElementById('pay-notas').value;
+
+            if (!monto || parseFloat(monto) <= 0) {
+                showToast("Ingresa un monto válido", "warning");
+                return;
+            }
+
+            const payload = {
+                ID_Reserva: id,
+                Monto: parseFloat(monto),
+                Metodo: metodo,
+                Tipo: tipo,
+                Fecha: fecha,
+                Notas: notas,
+                Action: 'RegistrarPago' // Flag for n8n to know routing
+            };
+
+            console.log("Submitting Payment:", payload);
+
+            // TODO: Connect to WEBHOOK_URL
+            // fetch(WEBHOOK_URL, { method: 'POST', body: JSON.stringify(payload) }) ...
+
+            // Optimistic Update (Simulation)
+            showToast("Pago registrado correctamente (Simulación)", "success");
+            closePaymentModal();
+
+            // In real version, we would verify successful write, then:
+            // 1. Add to state.pagos
+            // 2. Re-render Contact Modal Finances
+            // 3. Re-render Main Finance View
         }
     </script>
 </body>
