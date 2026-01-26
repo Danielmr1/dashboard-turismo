@@ -2232,14 +2232,17 @@
                 setTimeout(async () => {
                     if (!db) return;
 
-                    // Normalize phone (DB uses +51 format)
-                    const phoneSearch = telefono.startsWith('+') ? telefono :
-                        (telefono.length >= 9 ? '+51' + telefono.replace(/^51/, '') : telefono);
+                    // Normalize phone (Try multiple formats to ensure match)
+                    const cleanPhone = telefono.replace(/\D/g, ''); // Remove non-digits
+                    const phoneWithCountry = cleanPhone.startsWith('51') ? '+' + cleanPhone : '+51' + cleanPhone; // +519...
+                    const phoneRaw = cleanPhone; // 9... (or 519...)
+
+                    console.log("Searching contact variants:", phoneWithCountry, phoneRaw);
 
                     const { data, error } = await db
                         .from('contactos')
                         .select('id')
-                        .or(`whatsapp.eq.${phoneSearch},whatsapp.eq.+${telefono}`)
+                        .or(`whatsapp.eq.${phoneWithCountry},whatsapp.eq.${phoneRaw},whatsapp.eq.+${phoneRaw}`)
                         .maybeSingle();
 
                     if (data && data.id) {
