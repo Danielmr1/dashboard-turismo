@@ -2460,10 +2460,12 @@
                     const grouped = {};
                     rawRes.forEach(r => {
                         // Group by package (creado_en)
+                        // Use exact timestamp string to group identical packages
                         const key = r.creado_en;
+
                         if (!grouped[key]) {
                             grouped[key] = {
-                                fecha: r.fecha_reserva,
+                                fecha: r.fecha_reserva ? r.fecha_reserva.split('T')[0] : '-',
                                 contacto_id: r.contacto_id,
                                 tour_names: [],
                                 pax: r.PAX,
@@ -2473,30 +2475,22 @@
                                 ids: []
                             };
                         }
-                        grouped[key].tour_names.push(tMap[r.tour_id] || 'N/A');
-                        grouped[key].monto_total += parseFloat(r.monto_total || 0) / rawRes.filter(sub => sub.creado_en === key).length;
-                        // Wait, monto_total is per row in DB? Or total for package duplicated?
-                        // In Logic: create one reservation per tour.
-                        // And usually we split total price or not?
-                        // Checking saveReservation logic: 
-                        // const reservations = selectedTours.map... monto_total: montoTotal.
-                        // Wait, does it divide?
-                        // Code loop: const reservations = selectedTours.map(tourId => ({ ... monto_total: montoTotal, ... }))
-                        // It saves the FULL amount in EACH row?
-                        // IF user enters 300 for 2 tours. Each row has 300. 
-                        // So Summing them is WRONG. We should take it ONCE.
-                        // Since they are identical, we just take the value from the first one.
 
-                        // Correct Logic for Package Totals:
+                        // Add tour name if valid
+                        const tName = tMap[r.tour_id];
+                        if (tName) grouped[key].tour_names.push(tName);
+
+                        // Handle Duplicate Amounts:
+                        // Since 'monto_total' is stored fully in each row of the same package (e.g. 300, 300),
+                        // we only take it ONCE for the group.
                         if (grouped[key].ids.length === 0) {
                             grouped[key].monto_total = parseFloat(r.monto_total || 0);
                         }
 
-                        grouped[key].pagado += (pMap[r.id] || 0); // Payments are linked to specific reservation IDs usually? 
-                        // Or if we pay for package, how is it stored?
-                        // Logic savePayment: uses 'inp-p-reserva-id'. 
-                        // Usually pays against ONE reservation id of the group.
-                        // So checking all IDs in group and summing payments is correct.
+                        // Sum payments:
+                        // Payments are usually linked to ONE of the reservation IDs in the group.
+                        // So checking all IDs and summing unique payments works.
+                        grouped[key].pagado += (pMap[r.id] || 0);
 
                         grouped[key].ids.push(r.id);
                     });
