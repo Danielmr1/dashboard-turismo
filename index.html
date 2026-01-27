@@ -282,10 +282,11 @@
                         <thead
                             class="bg-slate-50 border-b border-slate-200 text-xs uppercase font-semibold text-slate-500">
                             <tr>
-                                <th class="px-6 py-4">Reserva (Cliente)</th>
-                                <th class="px-6 py-4 text-right">Monto</th>
-                                <th class="px-6 py-4">Método</th>
-                                <th class="px-6 py-4">Fecha</th>
+                                <th scope="col" class="px-6 py-3">Reserva (Cliente)</th>
+                                <th scope="col" class="px-6 py-3">Tour</th>
+                                <th scope="col" class="px-6 py-3 text-right">Monto</th>
+                                <th scope="col" class="px-6 py-3">Método</th>
+                                <th scope="col" class="px-6 py-3">Fecha</th>
                             </tr>
                         </thead>
                         <tbody id="table-payments-body"></tbody>
@@ -1790,7 +1791,7 @@
             const start = pages.payments * ITEMS_PER_PAGE;
             const end = start + ITEMS_PER_PAGE - 1;
             const tbody = document.getElementById('table-payments-body');
-            tbody.innerHTML = '<tr><td colspan="4" class="px-6 py-4 text-center">Cargando...</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="5" class="px-6 py-4 text-center">Cargando...</td></tr>';
 
             if (!db) return;
 
@@ -1803,7 +1804,7 @@
 
                 if (error) {
                     console.error('Payments query error:', error);
-                    tbody.innerHTML = `<tr><td colspan="4" class="px-6 py-4 text-center text-red-500">Error: ${error.message}</td></tr>`;
+                    tbody.innerHTML = `<tr><td colspan="5" class="px-6 py-4 text-center text-red-500">Error: ${error.message}</td></tr>`;
                     return;
                 }
 
@@ -1811,30 +1812,38 @@
                 updatePaginationUI('payments');
 
                 if (!data || data.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="4" class="px-6 py-8 text-center text-slate-500">No hay pagos</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="5" class="px-6 py-8 text-center text-slate-500">No hay pagos</td></tr>';
                     return;
                 }
 
                 // Fetch reservation and contact info
                 const reservaIds = [...new Set(data.map(p => p.reserva_id).filter(Boolean))];
-                const { data: reservas } = await db.from('reservas').select('id, contacto_id').in('id', reservaIds);
+                const { data: reservas } = await db.from('reservas').select('id, contacto_id, tour_id').in('id', reservaIds);
 
                 const contactIds = [...new Set(reservas?.map(r => r.contacto_id).filter(Boolean) || [])];
-                const { data: contacts } = await db.from('contactos').select('id, nombre_completo').in('id', contactIds);
+                const tourIds = [...new Set(reservas?.map(r => r.tour_id).filter(Boolean) || [])];
 
-                const reservaContactMap = {};
-                reservas?.forEach(r => reservaContactMap[r.id] = r.contacto_id);
+                const { data: contacts } = await db.from('contactos').select('id, nombre_completo').in('id', contactIds);
+                const { data: tours } = await db.from('tours').select('id, nombre').in('id', tourIds);
+
+                const reservaMap = {};
+                reservas?.forEach(r => reservaMap[r.id] = r);
 
                 const contactMap = {};
                 contacts?.forEach(c => contactMap[c.id] = c.nombre_completo);
 
+                const tourMap = {};
+                tours?.forEach(t => tourMap[t.id] = t.nombre);
+
                 tbody.innerHTML = data.map(p => {
-                    const contactoId = reservaContactMap[p.reserva_id];
-                    const clientName = contactMap[contactoId] || 'N/A';
+                    const reserva = reservaMap[p.reserva_id] || {};
+                    const clientName = contactMap[reserva.contacto_id] || 'N/A';
+                    const tourName = tourMap[reserva.tour_id] || '-';
 
                     return `
                     <tr class="hover:bg-slate-50 border-b">
                         <td class="px-6 py-4">${clientName}</td>
+                        <td class="px-6 py-4 text-xs text-slate-500">${tourName}</td>
                         <td class="px-6 py-4 text-right font-bold ${p.monto < 0 ? 'text-red-600' : ''}">S/ ${p.monto || 0}</td>
                         <td class="px-6 py-4">${p.metodo_pago || '-'}</td>
                         <td class="px-6 py-4">${p.fecha_pago ? p.fecha_pago.split('T')[0] : '-'}</td>
@@ -2520,33 +2529,44 @@
                 }
                 else if (type === 'payments') {
                     const { data: payments, error } = await db.from('pagos')
-                        .select('*, reservas(contacto_id)')
+                        .select('*, reservas(contacto_id, tour_id)') // Fetch tour_id
                         .gte('fecha_pago', fromDate + ' 00:00:00')
                         .lte('fecha_pago', toDate + ' 23:59:59')
                         .order('fecha_pago', { ascending: false });
 
                     if (error) throw error;
 
-                    // Need client names
+                    // Need client names and tour names
                     const resIds = payments.map(p => p.reserva_id);
-                    const { data: resData } = await db.from('reservas').select('id, contacto_id').in('id', resIds);
+                    const { data: resData } = await db.from('reservas').select('id, contacto_id, tour_id').in('id', resIds);
 
-                    const contactMap = {};
                     if (resData) {
-                        const cIds = resData.map(r => r.contacto_id);
-                        const { data: contacts } = await db.from('contactos').select('id, nombre_completo').in('id', cIds);
+                        const cIds = [...new Set(resData.map(r => r.contacto_id))];
+                        const tIds = [...new Set(resData.map(r => r.tour_id))];
 
-                        const rToC = {}; resData.forEach(r => rToC[r.id] = r.contacto_id);
+                        const { data: contacts } = await db.from('contactos').select('id, nombre_completo').in('id', cIds);
+                        const { data: tours } = await db.from('tours').select('id, nombre').in('id', tIds);
+
+                        const rToC = {};
+                        const rToT = {};
+                        resData.forEach(r => {
+                            rToC[r.id] = r.contacto_id;
+                            rToT[r.id] = r.tour_id;
+                        });
+
                         const cToN = {}; contacts?.forEach(c => cToN[c.id] = c.nombre_completo);
+                        const tToN = {}; tours?.forEach(t => tToN[t.id] = t.nombre);
 
                         payments.forEach(p => {
                             p.client_name = cToN[rToC[p.reserva_id]] || 'Desconocido';
+                            p.tour_name = tToN[rToT[p.reserva_id]] || '-';
                         });
                     }
 
                     data = payments.map(p => ({
                         'Fecha': p.fecha_pago ? p.fecha_pago.split('T')[0] : '-',
                         'Cliente': p.client_name || '-',
+                        'Tour': p.tour_name || '-',
                         'Monto': p.monto,
                         'Metodo': p.metodo_pago,
                         'ID Recibo': p.id
