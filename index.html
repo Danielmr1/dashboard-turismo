@@ -2408,71 +2408,117 @@
                     if (status !== 'all') {
                         query = query.eq('estado', status);
                     }
-                    // Contacts don't strictly have a date range for filter besides created_at, 
-                    // but user might want "New contacts in Jan".
                     query = query.gte('creado_en', fromDate).lte('creado_en', toDate + ' 23:59:59');
 
                     const { data: contacts, error } = await query;
                     if (error) throw error;
                     data = contacts.map(c => ({
-                        Nombre: c.nombre_completo,
-                        Whatsapp: c.whatsapp,
-                        Ciudad: c.ciudad,
-                        Fuente: c.fuente,
-                        Estado: c.estado,
-                        'Registrado El': c.creado_en
+                        'Nombre': c.nombre_completo,
+                        'DNI': c.dni || '-',
+                        'Whatsapp': c.whatsapp,
+                        'Ciudad': c.ciudad,
+                        'Fuente': c.fuente,
+                        'Estado': c.estado,
+                        'Registrado El': c.creado_en ? c.creado_en.split('T')[0] : '-'
                     }));
                 }
                 else if (type === 'reservations') {
-                    let query = db.from('reservas').select('*, tours(nombre), contactos(nombre_completo)');
-
-                    query = query.gte('fecha_reserva', fromDate).lte('fecha_reserva', toDate);
+                    // Fetch Reservations
+                    let query = db.from('reservas').select('*')
+                        .gte('fecha_reserva', fromDate)
+                        .lte('fecha_reserva', toDate);
 
                     if (status !== 'all') {
                         query = query.eq('estado', status);
                     }
 
-                    // For reservations, fetch related naming is tricky if foreign keys aren't set up for auto-join in 1 query simply
-                    // Actually supabase-js joins if keys exist.
-                    // But to be safe and consistent with existing logic, let's fetch raw then join manually or use the simple select if worked.
-                    // The chart logic used manual join logic... let's stick to what we know works: Manual ID fetch for safety.
-
-                    const { data: rawRes, error } = await db.from('reservas')
-                        .select('*')
-                        .gte('fecha_reserva', fromDate)
-                        .lte('fecha_reserva', toDate);
-
+                    const { data: rawRes, error } = await query;
                     if (error) throw error;
 
-                    if (status !== 'all') {
-                        data = rawRes.filter(r => r.estado === status);
-                    } else {
-                        data = rawRes;
+                    if (rawRes.length === 0) {
+                        alert('No se encontraron reservas con esos filtros.');
+                        return;
                     }
 
-                    // Enriched Data
-                    if (data.length > 0) {
-                        const contactIds = [...new Set(data.map(r => r.contacto_id))];
-                        const tourIds = [...new Set(data.map(r => r.tour_id))];
+                    // Fetch Related Data
+                    const contactIds = [...new Set(rawRes.map(r => r.contacto_id))];
+                    const tourIds = [...new Set(rawRes.map(r => r.tour_id))];
+                    const reservaIds = rawRes.map(r => r.id);
 
-                        const { data: contacts } = await db.from('contactos').select('id, nombre_completo').in('id', contactIds);
-                        const { data: tours } = await db.from('tours').select('id, nombre').in('id', tourIds);
+                    const { data: contacts } = await db.from('contactos').select('id, nombre_completo, dni').in('id', contactIds);
+                    const { data: tours } = await db.from('tours').select('id, nombre').in('id', tourIds);
+                    const { data: payments } = await db.from('pagos').select('reserva_id, monto').in('reserva_id', reservaIds);
 
-                        const cMap = {}; contacts?.forEach(c => cMap[c.id] = c.nombre_completo);
-                        const tMap = {}; tours?.forEach(t => tMap[t.id] = t.nombre);
 
-                        data = data.map(r => ({
-                            'ID Reserva': r.id,
-                            'Fecha Tour': r.fecha_reserva,
-                            'Cliente': cMap[r.contacto_id] || 'Desconocido',
-                            'Tour': tMap[r.tour_id] || 'Desconocido',
-                            'PAX': r.PAX,
-                            'Monto': r.monto_total,
-                            'Estado': r.estado,
-                            'Estado Pago': r.estado_pago,
-                            'Creado El': r.creado_en
-                        }));
-                    }
+                    const cMap = {}; contacts?.forEach(c => cMap[c.id] = c);
+                    const tMap = {}; tours?.forEach(t => tMap[t.id] = t.nombre);
+                    const pMap = {}; payments?.forEach(p => {
+                        pMap[p.reserva_id] = (pMap[p.reserva_id] || 0) + parseFloat(p.monto);
+                    });
+
+                    // CONSOLIDATION LOGIC
+                    const grouped = {};
+                    rawRes.forEach(r => {
+                        // Group by package (creado_en)
+                        const key = r.creado_en;
+                        if (!grouped[key]) {
+                            grouped[key] = {
+                                fecha: r.fecha_reserva,
+                                contacto_id: r.contacto_id,
+                                tour_names: [],
+                                pax: r.PAX,
+                                monto_total: 0,
+                                pagado: 0,
+                                estado: r.estado,
+                                ids: []
+                            };
+                        }
+                        grouped[key].tour_names.push(tMap[r.tour_id] || 'N/A');
+                        grouped[key].monto_total += parseFloat(r.monto_total || 0) / rawRes.filter(sub => sub.creado_en === key).length;
+                        // Wait, monto_total is per row in DB? Or total for package duplicated?
+                        // In Logic: create one reservation per tour.
+                        // And usually we split total price or not?
+                        // Checking saveReservation logic: 
+                        // const reservations = selectedTours.map... monto_total: montoTotal.
+                        // Wait, does it divide?
+                        // Code loop: const reservations = selectedTours.map(tourId => ({ ... monto_total: montoTotal, ... }))
+                        // It saves the FULL amount in EACH row?
+                        // IF user enters 300 for 2 tours. Each row has 300. 
+                        // So Summing them is WRONG. We should take it ONCE.
+                        // Since they are identical, we just take the value from the first one.
+
+                        // Correct Logic for Package Totals:
+                        if (grouped[key].ids.length === 0) {
+                            grouped[key].monto_total = parseFloat(r.monto_total || 0);
+                        }
+
+                        grouped[key].pagado += (pMap[r.id] || 0); // Payments are linked to specific reservation IDs usually? 
+                        // Or if we pay for package, how is it stored?
+                        // Logic savePayment: uses 'inp-p-reserva-id'. 
+                        // Usually pays against ONE reservation id of the group.
+                        // So checking all IDs in group and summing payments is correct.
+
+                        grouped[key].ids.push(r.id);
+                    });
+
+                    // Build Final List
+                    data = Object.values(grouped).map(g => {
+                        const client = cMap[g.contacto_id] || {};
+                        // Consolidate identical statuses or show list? 
+                        // Usually package is all same status.
+
+                        return {
+                            'Fecha Reserva': g.fecha,
+                            'Cliente': client.nombre_completo || 'Desconocido',
+                            'DNI': client.dni || '-',
+                            'Paquete / Tours': g.tour_names.join(' + '),
+                            'PAX': g.pax,
+                            'Monto Total': g.monto_total,
+                            'Pagado': g.pagado,
+                            'Saldo': g.monto_total - g.pagado,
+                            'Estado': g.estado
+                        };
+                    });
                 }
                 else if (type === 'payments') {
                     const { data: payments, error } = await db.from('pagos')
@@ -2491,8 +2537,7 @@
                     if (resData) {
                         const cIds = resData.map(r => r.contacto_id);
                         const { data: contacts } = await db.from('contactos').select('id, nombre_completo').in('id', cIds);
-                        // Map R_ID -> C_ID -> Name is annoying.
-                        // Simpler: Map R_ID -> C_ID
+
                         const rToC = {}; resData.forEach(r => rToC[r.id] = r.contacto_id);
                         const cToN = {}; contacts?.forEach(c => cToN[c.id] = c.nombre_completo);
 
