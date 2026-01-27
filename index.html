@@ -1816,18 +1816,23 @@
                     return;
                 }
 
-                // Fetch reservation and contact info
+                // Fetch reservation info (to get creado_en and verify package)
                 const reservaIds = [...new Set(data.map(p => p.reserva_id).filter(Boolean))];
-                const { data: reservas } = await db.from('reservas').select('id, contacto_id, tour_id').in('id', reservaIds);
+                const { data: reservas } = await db.from('reservas').select('id, contacto_id, tour_id, creado_en').in('id', reservaIds);
+
+                // Find all packages (shared creation dates)
+                const timestamps = [...new Set(reservas?.map(r => r.creado_en).filter(Boolean))];
+
+                // Fetch ALL reservations that belong to these packages (same created_en)
+                const { data: siblingReservas } = await db.from('reservas')
+                    .select('id, tour_id, creado_en')
+                    .in('creado_en', timestamps);
 
                 const contactIds = [...new Set(reservas?.map(r => r.contacto_id).filter(Boolean) || [])];
-                const tourIds = [...new Set(reservas?.map(r => r.tour_id).filter(Boolean) || [])];
+                const allTourIds = [...new Set(siblingReservas?.map(r => r.tour_id).filter(Boolean) || [])];
 
                 const { data: contacts } = await db.from('contactos').select('id, nombre_completo').in('id', contactIds);
-                const { data: tours } = await db.from('tours').select('id, nombre').in('id', tourIds);
-
-                const reservaMap = {};
-                reservas?.forEach(r => reservaMap[r.id] = r);
+                const { data: tours } = await db.from('tours').select('id, nombre').in('id', allTourIds);
 
                 const contactMap = {};
                 contacts?.forEach(c => contactMap[c.id] = c.nombre_completo);
@@ -1835,15 +1840,31 @@
                 const tourMap = {};
                 tours?.forEach(t => tourMap[t.id] = t.nombre);
 
+                // Group tours by package (creado_en)
+                const packageTours = {};
+                siblingReservas?.forEach(r => {
+                    const key = r.creado_en;
+                    if (!packageTours[key]) packageTours[key] = [];
+                    if (r.tour_id && tourMap[r.tour_id]) {
+                        packageTours[key].push(tourMap[r.tour_id]);
+                    }
+                });
+
+                const reservaMap = {};
+                reservas?.forEach(r => reservaMap[r.id] = r);
+
                 tbody.innerHTML = data.map(p => {
                     const reserva = reservaMap[p.reserva_id] || {};
                     const clientName = contactMap[reserva.contacto_id] || 'N/A';
-                    const tourName = tourMap[reserva.tour_id] || '-';
+
+                    // Get all tours for this package
+                    const packageKey = reserva.creado_en;
+                    const toursList = packageTours[packageKey] ? [...new Set(packageTours[packageKey])].join(' + ') : '-';
 
                     return `
                     <tr class="hover:bg-slate-50 border-b">
                         <td class="px-6 py-4">${clientName}</td>
-                        <td class="px-6 py-4 text-xs text-slate-500">${tourName}</td>
+                        <td class="px-6 py-4 text-xs text-slate-500 max-w-xs truncate" title="${toursList}">${toursList}</td>
                         <td class="px-6 py-4 text-right font-bold ${p.monto < 0 ? 'text-red-600' : ''}">S/ ${p.monto || 0}</td>
                         <td class="px-6 py-4">${p.metodo_pago || '-'}</td>
                         <td class="px-6 py-4">${p.fecha_pago ? p.fecha_pago.split('T')[0] : '-'}</td>
@@ -2529,37 +2550,56 @@
                 }
                 else if (type === 'payments') {
                     const { data: payments, error } = await db.from('pagos')
-                        .select('*, reservas(contacto_id, tour_id)') // Fetch tour_id
+                        .select('*, reservas(contacto_id, tour_id, creado_en)') // Fetch tour_id and creado_en
                         .gte('fecha_pago', fromDate + ' 00:00:00')
                         .lte('fecha_pago', toDate + ' 23:59:59')
                         .order('fecha_pago', { ascending: false });
 
                     if (error) throw error;
 
-                    // Need client names and tour names
+                    // Need client names and package tour names
                     const resIds = payments.map(p => p.reserva_id);
-                    const { data: resData } = await db.from('reservas').select('id, contacto_id, tour_id').in('id', resIds);
+                    const { data: resData } = await db.from('reservas').select('id, contacto_id, tour_id, creado_en').in('id', resIds);
 
                     if (resData) {
+                        const timestamps = [...new Set(resData.map(r => r.creado_en).filter(Boolean))];
+
+                        // Fetch all sibling reservations for packages
+                        const { data: siblingReservas } = await db.from('reservas')
+                            .select('id, tour_id, creado_en')
+                            .in('creado_en', timestamps);
+
                         const cIds = [...new Set(resData.map(r => r.contacto_id))];
-                        const tIds = [...new Set(resData.map(r => r.tour_id))];
+                        const allTourIds = [...new Set(siblingReservas?.map(r => r.tour_id).filter(Boolean) || [])];
 
                         const { data: contacts } = await db.from('contactos').select('id, nombre_completo').in('id', cIds);
-                        const { data: tours } = await db.from('tours').select('id, nombre').in('id', tIds);
+                        const { data: tours } = await db.from('tours').select('id, nombre').in('id', allTourIds);
 
                         const rToC = {};
-                        const rToT = {};
-                        resData.forEach(r => {
-                            rToC[r.id] = r.contacto_id;
-                            rToT[r.id] = r.tour_id;
+                        resData.forEach(r => rToC[r.id] = r.contacto_id);
+
+                        const tourMap = {};
+                        tours?.forEach(t => tourMap[t.id] = t.nombre);
+
+                        // Map packages
+                        const packageTours = {};
+                        siblingReservas?.forEach(r => {
+                            if (!packageTours[r.creado_en]) packageTours[r.creado_en] = [];
+                            if (r.tour_id && tourMap[r.tour_id]) {
+                                packageTours[r.creado_en].push(tourMap[r.tour_id]);
+                            }
                         });
 
+                        const rToCreatedEn = {};
+                        resData.forEach(r => rToCreatedEn[r.id] = r.creado_en);
+
                         const cToN = {}; contacts?.forEach(c => cToN[c.id] = c.nombre_completo);
-                        const tToN = {}; tours?.forEach(t => tToN[t.id] = t.nombre);
 
                         payments.forEach(p => {
                             p.client_name = cToN[rToC[p.reserva_id]] || 'Desconocido';
-                            p.tour_name = tToN[rToT[p.reserva_id]] || '-';
+
+                            const pkgKey = rToCreatedEn[p.reserva_id];
+                            p.tour_name = packageTours[pkgKey] ? [...new Set(packageTours[pkgKey])].join(' + ') : '-';
                         });
                     }
 
