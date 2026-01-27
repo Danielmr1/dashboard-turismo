@@ -1859,15 +1859,20 @@
 
                     // Get all tours for this package
                     const packageKey = reserva.creado_en;
-                    const toursList = packageTours[packageKey] ? [...new Set(packageTours[packageKey])].join(' + ') : '-';
+                    const uniqueTours = packageTours[packageKey] ? [...new Set(packageTours[packageKey])] : [];
+
+                    // Format tours vertically
+                    const toursHtml = uniqueTours.length > 0
+                        ? uniqueTours.map(t => `<div class="mb-1 last:mb-0">${t}</div>`).join('')
+                        : '-';
 
                     return `
                     <tr class="hover:bg-slate-50 border-b">
-                        <td class="px-6 py-4">${clientName}</td>
-                        <td class="px-6 py-4 text-xs text-slate-500 max-w-xs truncate" title="${toursList}">${toursList}</td>
-                        <td class="px-6 py-4 text-right font-bold ${p.monto < 0 ? 'text-red-600' : ''}">S/ ${p.monto || 0}</td>
-                        <td class="px-6 py-4">${p.metodo_pago || '-'}</td>
-                        <td class="px-6 py-4">${p.fecha_pago ? p.fecha_pago.split('T')[0] : '-'}</td>
+                        <td class="px-6 py-4 align-top">${clientName}</td>
+                        <td class="px-6 py-4 text-xs text-slate-500 align-top">${toursHtml}</td>
+                        <td class="px-6 py-4 text-right font-bold align-top ${p.monto < 0 ? 'text-red-600' : ''}">S/ ${p.monto || 0}</td>
+                        <td class="px-6 py-4 align-top">${p.metodo_pago || '-'}</td>
+                        <td class="px-6 py-4 align-top">${p.fecha_pago ? p.fecha_pago.split('T')[0] : '-'}</td>
                     </tr>
                 `}).join('');
             } catch (e) {
