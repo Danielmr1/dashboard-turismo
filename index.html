@@ -155,7 +155,7 @@
                 <!-- Charts Row 2: Trend & Distribution -->
                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-                        <h3 class="text-lg font-bold text-slate-800 mb-4">Evolución de PAX</h3>
+                        <h3 class="text-lg font-bold text-slate-800 mb-4">Evolución de Nuevos Contactos</h3>
                         <div class="h-64"><canvas id="chartPaxTrend"></canvas></div>
                     </div>
                     <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
@@ -1030,31 +1030,29 @@
                     startDate = new Date(today.getFullYear(), today.getMonth() - 2, 1);
                 }
 
-                // Fetch data
-                const { data: reservations, error } = await db
-                    .from('reservas')
-                    .select('fecha_reserva, PAX')
-                    .gte('fecha_reserva', startDate.toISOString().split('T')[0])
-                    .neq('estado', 'Cancelada');
+                // Fetch data from CONTACTOS
+                const { data: contacts, error } = await db
+                    .from('contactos')
+                    .select('creado_en')
+                    .gte('creado_en', startDate.toISOString().split('T')[0]);
 
                 if (error) throw error;
 
                 // Process data based on period
                 const groupedData = {};
 
-                if (period === 'month') {
-                    // Group by Day (YYYY-MM-DD)
-                    reservations.forEach(r => {
-                        groupedData[r.fecha_reserva] = (groupedData[r.fecha_reserva] || 0) + (r.PAX || 0);
-                    });
-                } else {
-                    // Group by Month (YYYY-MM)
-                    reservations.forEach(r => {
-                        const date = new Date(r.fecha_reserva + 'T00:00:00'); // Fix timezone
-                        const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-                        groupedData[key] = (groupedData[key] || 0) + (r.PAX || 0);
-                    });
-                }
+                contacts.forEach(c => {
+                    const dateDesc = new Date(c.creado_en);
+                    // Adjust to local date string yyyy-mm-dd
+                    const dateKey = dateDesc.toLocaleDateString('en-CA');
+
+                    if (period === 'month') {
+                        groupedData[dateKey] = (groupedData[dateKey] || 0) + 1;
+                    } else {
+                        const monthKey = `${dateDesc.getFullYear()}-${String(dateDesc.getMonth() + 1).padStart(2, '0')}`;
+                        groupedData[monthKey] = (groupedData[monthKey] || 0) + 1;
+                    }
+                });
 
                 // Sort keys
                 const labels = Object.keys(groupedData).sort();
@@ -1078,7 +1076,7 @@
                     data: {
                         labels: displayLabels,
                         datasets: [{
-                            label: 'Pasajeros (PAX)',
+                            label: 'Nuevos Contactos',
                             data: data,
                             borderColor: '#3b82f6',
                             backgroundColor: 'rgba(59, 130, 246, 0.1)',
