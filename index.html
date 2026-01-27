@@ -21,6 +21,10 @@
 
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- SheetJS (XLSX) -->
+    <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+
     <script>
         tailwind.config = {
             theme: {
@@ -173,10 +177,16 @@
             <section id="view-contacts" class="view-section hidden space-y-6">
                 <div class="flex justify-between items-center">
                     <h2 class="text-2xl font-bold">Base de Contactos</h2>
-                    <button onclick="openContactModal()"
-                        class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg text-sm font-medium">
-                        + Nuevo Contacto
-                    </button>
+                    <div class="flex gap-2">
+                        <button onclick="openExportModal('contacts')"
+                            class="px-3 py-2 text-sm text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 flex items-center gap-2">
+                            <span>📥</span> Exportar
+                        </button>
+                        <button onclick="openContactModal()"
+                            class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg text-sm font-medium">
+                            + Nuevo Contacto
+                        </button>
+                    </div>
                 </div>
                 <div class="bg-white border border-slate-200 rounded-xl overflow-x-auto shadow-sm">
                     <table class="w-full text-left text-sm min-w-[800px]">
@@ -212,10 +222,16 @@
             <section id="view-reservations" class="view-section hidden space-y-6">
                 <div class="flex justify-between items-center">
                     <h2 class="text-2xl font-bold">Reservas</h2>
-                    <button onclick="openReservationModal()"
-                        class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg text-sm font-medium">
-                        + Nueva Reserva
-                    </button>
+                    <div class="flex gap-2">
+                        <button onclick="openExportModal('reservations')"
+                            class="px-3 py-2 text-sm text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 flex items-center gap-2">
+                            <span>📥</span> Exportar
+                        </button>
+                        <button onclick="openReservationModal()"
+                            class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg text-sm font-medium">
+                            + Nueva Reserva
+                        </button>
+                    </div>
                 </div>
                 <div class="bg-white border border-slate-200 rounded-xl overflow-x-auto shadow-sm">
                     <table class="w-full text-left text-sm min-w-[800px]">
@@ -253,6 +269,12 @@
                     <div>
                         <h2 class="text-2xl font-bold">Caja y Pagos</h2>
                         <p class="text-sm text-slate-500 mt-1">Vista de auditoría - Solo lectura</p>
+                    </div>
+                    <div>
+                        <button onclick="openExportModal('payments')"
+                            class="px-3 py-2 text-sm text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 flex items-center gap-2">
+                            <span>📥</span> Exportar
+                        </button>
                     </div>
                 </div>
                 <div class="bg-white border border-slate-200 rounded-xl overflow-x-auto shadow-sm">
@@ -542,6 +564,57 @@
                 <button onclick="closeModal('reservation')" class="px-4 py-2 text-slate-600">Cancelar</button>
                 <button onclick="saveReservation()"
                     class="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700">Crear Reserva</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Export Modal -->
+    <div id="modal-export" class="hidden fixed inset-0 z-50 flex items-center justify-center modal-overlay">
+        <div class="bg-white rounded-2xl shadow-xl w-full max-w-sm modal-content">
+            <div class="p-6 border-b flex justify-between items-center">
+                <h3 class="text-lg font-bold" id="export-modal-title">Exportar Datos</h3>
+                <button onclick="closeModal('export')" class="text-slate-400 hover:text-slate-600">&times;</button>
+            </div>
+            <div class="p-6 space-y-4">
+                <input type="hidden" id="inp-export-type">
+
+                <div>
+                    <label class="block text-sm font-medium mb-1">Rango de Fechas</label>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <span class="text-xs text-slate-500">Desde</span>
+                            <input type="date" id="inp-export-from" class="w-full px-3 py-2 border rounded-lg text-sm">
+                        </div>
+                        <div>
+                            <span class="text-xs text-slate-500">Hasta</span>
+                            <input type="date" id="inp-export-to" class="w-full px-3 py-2 border rounded-lg text-sm">
+                        </div>
+                    </div>
+                </div>
+
+                <div id="div-export-status">
+                    <label class="block text-sm font-medium mb-1">Estado</label>
+                    <select id="inp-export-status" class="w-full px-3 py-2 border rounded-lg text-sm">
+                        <option value="all">Todos</option>
+                        <option value="Lead">Leads (Solo Contactos)</option>
+                        <option value="Cliente">Clientes (Solo Contactos)</option>
+                        <option value="Pendiente">Pendientes</option>
+                        <option value="Confirmada">Confirmadas</option>
+                        <option value="Completada">Completadas</option>
+                        <option value="Cancelada">Canceladas</option>
+                    </select>
+                </div>
+
+                <p class="text-xs text-slate-500 italic">
+                    * Se descargarán todas las filas que coincidan con los filtros, formato Excel (.xlsx).
+                </p>
+            </div>
+            <div class="p-6 border-t flex justify-end gap-3">
+                <button onclick="closeModal('export')" class="px-4 py-2 text-slate-600">Cancelar</button>
+                <button onclick="generateExport()"
+                    class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2">
+                    <span>📄</span> Descargar Excel
+                </button>
             </div>
         </div>
     </div>
@@ -2283,6 +2356,176 @@
                 // Close sidebar
                 sidebar.classList.add('-translate-x-full');
                 overlay.classList.add('hidden');
+            }
+        }
+    </script>
+    <script>
+        // EXPORT LOGIC
+        function openExportModal(type) {
+            document.getElementById('inp-export-type').value = type;
+            document.getElementById('modal-export').classList.remove('hidden');
+
+            // Set default dates (First day of current month to Today)
+            const today = getPeruDate();
+            const date = new Date();
+            const firstDay = new Date(date.getFullYear(), date.getMonth(), 1);
+            // Format first day manually
+            const fdY = firstDay.getFullYear();
+            const fdM = String(firstDay.getMonth() + 1).padStart(2, '0');
+            const fdD = String(firstDay.getDate()).padStart(2, '0');
+
+            document.getElementById('inp-export-from').value = `${fdY}-${fdM}-${fdD}`;
+            document.getElementById('inp-export-to').value = today;
+
+            // Toggle Status Field visibility
+            const statusDiv = document.getElementById('div-export-status');
+            if (type === 'payments') {
+                statusDiv.classList.add('hidden');
+            } else {
+                statusDiv.classList.remove('hidden');
+                // Adjust options if needed? For now keeps same set
+            }
+        }
+
+        async function generateExport() {
+            const type = document.getElementById('inp-export-type').value;
+            const fromDate = document.getElementById('inp-export-from').value;
+            const toDate = document.getElementById('inp-export-to').value;
+            const status = document.getElementById('inp-export-status').value;
+
+            if (!fromDate || !toDate) {
+                alert('Seleccione un rango de fechas');
+                return;
+            }
+
+            try {
+                let data = [];
+                let filename = `reporte_${type}_${fromDate}_${toDate}.xlsx`;
+
+                if (type === 'contacts') {
+                    let query = db.from('contactos').select('*');
+
+                    if (status !== 'all') {
+                        query = query.eq('estado', status);
+                    }
+                    // Contacts don't strictly have a date range for filter besides created_at, 
+                    // but user might want "New contacts in Jan".
+                    query = query.gte('creado_en', fromDate).lte('creado_en', toDate + ' 23:59:59');
+
+                    const { data: contacts, error } = await query;
+                    if (error) throw error;
+                    data = contacts.map(c => ({
+                        Nombre: c.nombre_completo,
+                        Whatsapp: c.whatsapp,
+                        Ciudad: c.ciudad,
+                        Fuente: c.fuente,
+                        Estado: c.estado,
+                        'Registrado El': c.creado_en
+                    }));
+                }
+                else if (type === 'reservations') {
+                    let query = db.from('reservas').select('*, tours(nombre), contactos(nombre_completo)');
+
+                    query = query.gte('fecha_reserva', fromDate).lte('fecha_reserva', toDate);
+
+                    if (status !== 'all') {
+                        query = query.eq('estado', status);
+                    }
+
+                    // For reservations, fetch related naming is tricky if foreign keys aren't set up for auto-join in 1 query simply
+                    // Actually supabase-js joins if keys exist.
+                    // But to be safe and consistent with existing logic, let's fetch raw then join manually or use the simple select if worked.
+                    // The chart logic used manual join logic... let's stick to what we know works: Manual ID fetch for safety.
+
+                    const { data: rawRes, error } = await db.from('reservas')
+                        .select('*')
+                        .gte('fecha_reserva', fromDate)
+                        .lte('fecha_reserva', toDate);
+
+                    if (error) throw error;
+
+                    if (status !== 'all') {
+                        data = rawRes.filter(r => r.estado === status);
+                    } else {
+                        data = rawRes;
+                    }
+
+                    // Enriched Data
+                    if (data.length > 0) {
+                        const contactIds = [...new Set(data.map(r => r.contacto_id))];
+                        const tourIds = [...new Set(data.map(r => r.tour_id))];
+
+                        const { data: contacts } = await db.from('contactos').select('id, nombre_completo').in('id', contactIds);
+                        const { data: tours } = await db.from('tours').select('id, nombre').in('id', tourIds);
+
+                        const cMap = {}; contacts?.forEach(c => cMap[c.id] = c.nombre_completo);
+                        const tMap = {}; tours?.forEach(t => tMap[t.id] = t.nombre);
+
+                        data = data.map(r => ({
+                            'ID Reserva': r.id,
+                            'Fecha Tour': r.fecha_reserva,
+                            'Cliente': cMap[r.contacto_id] || 'Desconocido',
+                            'Tour': tMap[r.tour_id] || 'Desconocido',
+                            'PAX': r.PAX,
+                            'Monto': r.monto_total,
+                            'Estado': r.estado,
+                            'Estado Pago': r.estado_pago,
+                            'Creado El': r.creado_en
+                        }));
+                    }
+                }
+                else if (type === 'payments') {
+                    const { data: payments, error } = await db.from('pagos')
+                        .select('*, reservas(contacto_id)')
+                        .gte('fecha_pago', fromDate + ' 00:00:00')
+                        .lte('fecha_pago', toDate + ' 23:59:59')
+                        .order('fecha_pago', { ascending: false });
+
+                    if (error) throw error;
+
+                    // Need client names
+                    const resIds = payments.map(p => p.reserva_id);
+                    const { data: resData } = await db.from('reservas').select('id, contacto_id').in('id', resIds);
+
+                    const contactMap = {};
+                    if (resData) {
+                        const cIds = resData.map(r => r.contacto_id);
+                        const { data: contacts } = await db.from('contactos').select('id, nombre_completo').in('id', cIds);
+                        // Map R_ID -> C_ID -> Name is annoying.
+                        // Simpler: Map R_ID -> C_ID
+                        const rToC = {}; resData.forEach(r => rToC[r.id] = r.contacto_id);
+                        const cToN = {}; contacts?.forEach(c => cToN[c.id] = c.nombre_completo);
+
+                        payments.forEach(p => {
+                            p.client_name = cToN[rToC[p.reserva_id]] || 'Desconocido';
+                        });
+                    }
+
+                    data = payments.map(p => ({
+                        'Fecha': p.fecha_pago ? p.fecha_pago.split('T')[0] : '-',
+                        'Cliente': p.client_name || '-',
+                        'Monto': p.monto,
+                        'Metodo': p.metodo_pago,
+                        'ID Recibo': p.id
+                    }));
+                }
+
+                if (data.length === 0) {
+                    alert('No se encontraron datos con esos filtros.');
+                    return;
+                }
+
+                // Generate Excel
+                const ws = XLSX.utils.json_to_sheet(data);
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, ws, "Reporte");
+                XLSX.writeFile(wb, filename);
+
+                closeModal('export');
+
+            } catch (e) {
+                console.error(e);
+                alert('Error al exportar: ' + e.message);
             }
         }
     </script>
