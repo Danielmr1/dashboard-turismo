@@ -2469,6 +2469,7 @@
                                 contacto_id: r.contacto_id,
                                 tour_names: [],
                                 pax: r.PAX,
+                                duracion: r.duracion,
                                 monto_total: 0,
                                 pagado: 0,
                                 estado: r.estado,
@@ -2502,11 +2503,13 @@
                         // Usually package is all same status.
 
                         return {
-                            'Fecha Reserva': g.fecha,
+                            'Fecha Registro': key ? key.split('T')[0] : '-',
+                            'Fecha Inicio Tour': g.fecha,
                             'Cliente': client.nombre_completo || 'Desconocido',
                             'DNI': client.dni || '-',
                             'Paquete / Tours': g.tour_names.join(' + '),
                             'PAX': g.pax,
+                            'Duración (Días)': g.duracion,
                             'Monto Total': g.monto_total,
                             'Pagado': g.pagado,
                             'Saldo': g.monto_total - g.pagado,
