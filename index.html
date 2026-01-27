@@ -2466,6 +2466,7 @@
                         if (!grouped[key]) {
                             grouped[key] = {
                                 fecha: r.fecha_reserva ? r.fecha_reserva.split('T')[0] : '-',
+                                created_at: key, // Store key for access in map
                                 contacto_id: r.contacto_id,
                                 tour_names: [],
                                 pax: r.PAX,
@@ -2503,7 +2504,7 @@
                         // Usually package is all same status.
 
                         return {
-                            'Fecha Registro': key ? key.split('T')[0] : '-',
+                            'Fecha Registro': g.created_at ? g.created_at.split('T')[0] : '-',
                             'Fecha Inicio Tour': g.fecha,
                             'Cliente': client.nombre_completo || 'Desconocido',
                             'DNI': client.dni || '-',
