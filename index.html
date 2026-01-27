@@ -381,7 +381,7 @@
                         </select>
                     </div>
                 </div>
-                <div>
+                <div class="hidden">
                     <label class="block text-sm font-medium mb-1">Estado</label>
                     <select id="inp-c-status" class="w-full px-3 py-2 border rounded-lg">
                         <option value="Lead">Lead</option>
@@ -2026,7 +2026,7 @@
                     // Get reservation total
                     const { data: reserva } = await db
                         .from('reservas')
-                        .select('monto_total')
+                        .select('monto_total, contacto_id')
                         .eq('id', reservaId)
                         .single();
 
@@ -2047,6 +2047,14 @@
                         .from('reservas')
                         .update({ estado_pago: nuevoEstadoPago })
                         .eq('id', reservaId);
+
+                    // AUTOMATION: Promote to 'Cliente' if payment > 0
+                    if (monto > 0 && reserva?.contacto_id) {
+                        await db
+                            .from('contactos')
+                            .update({ estado: 'Cliente' })
+                            .eq('id', reserva.contacto_id);
+                    }
 
                     alert(monto > 0 ? 'Pago registrado exitosamente' : 'Devolución registrada exitosamente');
                     closeModal('payment');
