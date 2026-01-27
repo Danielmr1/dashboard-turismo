@@ -195,12 +195,15 @@
                 </div>
                 <div class="flex justify-between items-center">
                     <span class="text-xs text-slate-500" id="contacts-page-info">Página 1</span>
-                    <div class="flex gap-1">
+                    <div class="flex gap-1 flex-wrap justify-end">
+                        <button onclick="changePage('contacts', 'first')" id="btn-first-contacts"
+                            class="px-3 py-1 text-xs bg-white border rounded hover:bg-slate-50 disabled:opacity-50">Inicio</button>
                         <button onclick="changePage('contacts', -1)" id="btn-prev-contacts"
-                            class="px-3 py-1 text-xs bg-white border rounded hover:bg-slate-50"
-                            disabled>Anterior</button>
+                            class="px-3 py-1 text-xs bg-white border rounded hover:bg-slate-50 disabled:opacity-50">Anterior</button>
                         <button onclick="changePage('contacts', 1)" id="btn-next-contacts"
-                            class="px-3 py-1 text-xs bg-white border rounded hover:bg-slate-50">Siguiente</button>
+                            class="px-3 py-1 text-xs bg-white border rounded hover:bg-slate-50 disabled:opacity-50">Siguiente</button>
+                        <button onclick="changePage('contacts', 'last')" id="btn-last-contacts"
+                            class="px-3 py-1 text-xs bg-white border rounded hover:bg-slate-50 disabled:opacity-50">Fin</button>
                     </div>
                 </div>
             </section>
@@ -231,12 +234,15 @@
                 </div>
                 <div class="flex justify-between items-center">
                     <span class="text-xs text-slate-500" id="reservations-page-info">Página 1</span>
-                    <div class="flex gap-1">
+                    <div class="flex gap-1 flex-wrap justify-end">
+                        <button onclick="changePage('reservations', 'first')" id="btn-first-reservations"
+                            class="px-3 py-1 text-xs bg-white border rounded hover:bg-slate-50 disabled:opacity-50">Inicio</button>
                         <button onclick="changePage('reservations', -1)" id="btn-prev-reservations"
-                            class="px-3 py-1 text-xs bg-white border rounded hover:bg-slate-50"
-                            disabled>Anterior</button>
+                            class="px-3 py-1 text-xs bg-white border rounded hover:bg-slate-50 disabled:opacity-50">Anterior</button>
                         <button onclick="changePage('reservations', 1)" id="btn-next-reservations"
-                            class="px-3 py-1 text-xs bg-white border rounded hover:bg-slate-50">Siguiente</button>
+                            class="px-3 py-1 text-xs bg-white border rounded hover:bg-slate-50 disabled:opacity-50">Siguiente</button>
+                        <button onclick="changePage('reservations', 'last')" id="btn-last-reservations"
+                            class="px-3 py-1 text-xs bg-white border rounded hover:bg-slate-50 disabled:opacity-50">Fin</button>
                     </div>
                 </div>
             </section>
@@ -265,12 +271,15 @@
                 </div>
                 <div class="flex justify-between items-center">
                     <span class="text-xs text-slate-500" id="payments-page-info">Página 1</span>
-                    <div class="flex gap-1">
+                    <div class="flex gap-1 flex-wrap justify-end">
+                        <button onclick="changePage('payments', 'first')" id="btn-first-payments"
+                            class="px-3 py-1 text-xs bg-white border rounded hover:bg-slate-50 disabled:opacity-50">Inicio</button>
                         <button onclick="changePage('payments', -1)" id="btn-prev-payments"
-                            class="px-3 py-1 text-xs bg-white border rounded hover:bg-slate-50"
-                            disabled>Anterior</button>
+                            class="px-3 py-1 text-xs bg-white border rounded hover:bg-slate-50 disabled:opacity-50">Anterior</button>
                         <button onclick="changePage('payments', 1)" id="btn-next-payments"
-                            class="px-3 py-1 text-xs bg-white border rounded hover:bg-slate-50">Siguiente</button>
+                            class="px-3 py-1 text-xs bg-white border rounded hover:bg-slate-50 disabled:opacity-50">Siguiente</button>
+                        <button onclick="changePage('payments', 'last')" id="btn-last-payments"
+                            class="px-3 py-1 text-xs bg-white border rounded hover:bg-slate-50 disabled:opacity-50">Fin</button>
                     </div>
                 </div>
             </section>
@@ -481,9 +490,16 @@
             <div class="p-6 space-y-4">
                 <div>
                     <label class="block text-sm font-medium mb-1">Cliente *</label>
-                    <select id="inp-r-cliente" class="w-full px-3 py-2 border rounded-lg">
-                        <option value="">Seleccionar cliente...</option>
-                    </select>
+                    <div class="relative">
+                        <input type="text" id="inp-r-cliente-search"
+                            placeholder="Buscar cliente por nombre o teléfono..."
+                            class="w-full px-3 py-2 border rounded-lg" autocomplete="off">
+                        <input type="hidden" id="inp-r-cliente">
+                        <div id="inp-r-cliente-options"
+                            class="absolute z-20 w-full bg-white border border-slate-200 rounded-lg shadow-lg max-h-48 overflow-y-auto hidden top-full mt-1">
+                            <!-- Options populated by JavaScript -->
+                        </div>
+                    </div>
                 </div>
 
                 <div>
@@ -1434,35 +1450,67 @@
             }
         }
 
+        // Helper for searchable dropdown
+        window.selectClient = function (id, name, pax, embarque) {
+            document.getElementById('inp-r-cliente').value = id;
+            document.getElementById('inp-r-cliente-search').value = name;
+
+            // Auto-fill logic
+            if (pax) document.getElementById('inp-r-pax').value = pax;
+            if (embarque) document.getElementById('inp-r-punto-embarque').value = embarque;
+
+            document.getElementById('inp-r-cliente-options').classList.add('hidden');
+        };
+
         async function openReservationModal() {
-            // Load contacts for dropdown with new columns
+            // Load contacts for dropdown
             const { data: contacts } = await db.from('contactos')
-                .select('id, nombre_completo, ultimo_pax, ultimo_punto_embarque') // Fetch new columns
+                .select('id, nombre_completo, whatsapp, ultimo_pax, ultimo_punto_embarque') // Fetch new columns
                 .order('nombre_completo');
 
-            const clientSelect = document.getElementById('inp-r-cliente');
+            const searchInput = document.getElementById('inp-r-cliente-search');
+            const hiddenInput = document.getElementById('inp-r-cliente');
+            const optionsContainer = document.getElementById('inp-r-cliente-options');
 
-            // Build options with data attributes for auto-fill
-            clientSelect.innerHTML = '<option value="">Seleccionar cliente...</option>' +
-                contacts?.map(c => `
-                    <option 
-                        value="${c.id}" 
-                        data-pax="${c.ultimo_pax || 1}" 
-                        data-embarque="${c.ultimo_punto_embarque || ''}"
-                    >
-                        ${c.nombre_completo}
-                    </option>`).join('');
+            // Reset inputs
+            searchInput.value = '';
+            hiddenInput.value = '';
 
-            // Add change listener for Auto-Fill Logic
-            clientSelect.onchange = function () {
-                const selectedOption = this.options[this.selectedIndex];
-                if (selectedOption.value) {
-                    const pax = selectedOption.getAttribute('data-pax');
-                    const embarque = selectedOption.getAttribute('data-embarque');
-
-                    if (pax) document.getElementById('inp-r-pax').value = pax;
-                    if (embarque) document.getElementById('inp-r-punto-embarque').value = embarque;
+            // Render options function
+            const renderOptions = (list) => {
+                if (!list || list.length === 0) {
+                    optionsContainer.innerHTML = '<div class="p-3 text-sm text-slate-500 text-center">No se encontraron clientes</div>';
+                    return;
                 }
+
+                optionsContainer.innerHTML = list.map(c => `
+                    <div class="px-3 py-2 hover:bg-emerald-50 cursor-pointer border-b last:border-0 transition-colors"
+                        onclick="selectClient('${c.id}', '${c.nombre_completo}', '${c.ultimo_pax || 1}', '${c.ultimo_punto_embarque || ''}')">
+                        <div class="font-medium text-sm text-slate-800">${c.nombre_completo}</div>
+                        <div class="text-xs text-slate-500">${c.whatsapp || 'Sin whatsapp'}</div>
+                    </div>
+                `).join('');
+            };
+
+            // Setup Event Listeners
+            searchInput.onfocus = () => {
+                renderOptions(contacts);
+                optionsContainer.classList.remove('hidden');
+            };
+
+            // Delay hiding to allow click event to register
+            searchInput.onblur = () => {
+                setTimeout(() => optionsContainer.classList.add('hidden'), 200);
+            };
+
+            searchInput.oninput = (e) => {
+                const term = e.target.value.toLowerCase();
+                const filtered = contacts?.filter(c =>
+                    (c.nombre_completo && c.nombre_completo.toLowerCase().includes(term)) ||
+                    (c.whatsapp && c.whatsapp.includes(term))
+                );
+                renderOptions(filtered);
+                optionsContainer.classList.remove('hidden');
             };
 
             // Load tours for checkboxes
@@ -2015,15 +2063,34 @@
             const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
 
             document.getElementById(`${section}-page-info`).textContent =
-                `Página ${currentPage + 1} de ${totalPages} (${totalItems} total)`;
+                `Página ${currentPage + 1} de ${totalPages || 1} (${totalItems} total)`;
 
-            document.getElementById(`btn-prev-${section}`).disabled = currentPage === 0;
-            document.getElementById(`btn-next-${section}`).disabled = currentPage >= totalPages - 1;
+            const btnFirst = document.getElementById(`btn-first-${section}`);
+            const btnPrev = document.getElementById(`btn-prev-${section}`);
+            const btnNext = document.getElementById(`btn-next-${section}`);
+            const btnLast = document.getElementById(`btn-last-${section}`);
+
+            if (btnFirst) btnFirst.disabled = currentPage === 0;
+            if (btnPrev) btnPrev.disabled = currentPage === 0;
+            if (btnNext) btnNext.disabled = currentPage >= totalPages - 1;
+            if (btnLast) btnLast.disabled = currentPage >= totalPages - 1;
         }
 
         function changePage(section, direction) {
-            pages[section] += direction;
+            const totalItems = totalCounts[section];
+            const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
+
+            if (direction === 'first') {
+                pages[section] = 0;
+            } else if (direction === 'last') {
+                pages[section] = totalPages - 1;
+            } else {
+                pages[section] += direction;
+            }
+
+            // Boundary checks
             if (pages[section] < 0) pages[section] = 0;
+            if (pages[section] >= totalPages) pages[section] = totalPages - 1;
 
             if (section === 'contacts') loadContacts();
             if (section === 'reservations') loadReservations();
