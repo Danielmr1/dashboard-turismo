@@ -2425,8 +2425,8 @@
                 else if (type === 'reservations') {
                     // Fetch Reservations
                     let query = db.from('reservas').select('*')
-                        .gte('fecha_reserva', fromDate)
-                        .lte('fecha_reserva', toDate);
+                        .gte('creado_en', fromDate)
+                        .lte('creado_en', toDate + ' 23:59:59');
 
                     if (status !== 'all') {
                         query = query.eq('estado', status);
