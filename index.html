@@ -2040,18 +2040,24 @@
 
                     const totalPagado = allPayments?.reduce((sum, p) => sum + parseFloat(p.monto), 0) || 0;
 
-                    // Get reservation total
+                    // Get reservation total AND package info
                     const { data: reserva } = await db
                         .from('reservas')
-                        .select('monto_total, contacto_id')
+                        .select('monto_total, creado_en, contacto_id')
                         .eq('id', reservaId)
                         .single();
 
-                    const montoTotal = parseFloat(reserva?.monto_total) || 0;
+                    // Calculate Total Package Amount
+                    const { data: packageReservas } = await db
+                        .from('reservas')
+                        .select('monto_total')
+                        .eq('creado_en', reserva.creado_en);
+
+                    const totalPackageAmount = packageReservas?.reduce((sum, r) => sum + (parseFloat(r.monto_total) || 0), 0) || 0;
 
                     // Determine new estado_pago
                     let nuevoEstadoPago = 'Pendiente';
-                    if (totalPagado >= montoTotal) {
+                    if (totalPagado >= totalPackageAmount) {
                         nuevoEstadoPago = 'Pagado';
                     } else if (totalPagado > 0) {
                         nuevoEstadoPago = 'Parcial';
@@ -2059,11 +2065,11 @@
                         nuevoEstadoPago = 'Reembolsado';
                     }
 
-                    // Update estado_pago in reservation
+                    // Update estado_pago in ALL reservations of the package
                     await db
                         .from('reservas')
                         .update({ estado_pago: nuevoEstadoPago })
-                        .eq('id', reservaId);
+                        .eq('creado_en', reserva.creado_en);
 
                     // AUTOMATION: Promote to 'Cliente' if payment > 0
                     if (monto > 0 && reserva?.contacto_id) {
@@ -2073,7 +2079,7 @@
                             .eq('id', reserva.contacto_id);
                     }
 
-                    alert(monto > 0 ? 'Pago registrado exitosamente' : 'Devolución registrada exitosamente');
+                    alert(monto > 0 ? 'Pago registrado exitosamente. Estado actualizado en todo el paquete.' : 'Devolución registrada exitosamente');
                     closeModal('payment');
                     loadPayments();
                     loadReservations(); // Reload to show updated status
