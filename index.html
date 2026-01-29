@@ -518,7 +518,7 @@
                     placeholder="Motivo de la devolución o comentario del pago"></textarea>
             </div>
         </div>
-        <div class="p-6 border-t flex justify-end gap-3">
+        <div class="p-6 border-t flex justify-center gap-3">
             <button onclick="closeModal('payment')" class="px-4 py-2 text-slate-600">Cancelar</button>
             <button onclick="savePayment()"
                 class="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700">Guardar</button>
@@ -2096,7 +2096,7 @@
                         nuevoEstadoPago = 'Pagado';
                     } else if (totalPagado > 0) {
                         nuevoEstadoPago = 'Parcial';
-                    } else if (totalPagado < 0) {
+                    } else if (allPayments.length > 0 && totalPagado <= 0) {
                         nuevoEstadoPago = 'Reembolsado';
                     }
 
