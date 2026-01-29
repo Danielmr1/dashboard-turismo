@@ -115,6 +115,8 @@
                 <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                     <h2 class="text-2xl font-bold text-slate-800">Panel de Control</h2>
                     <div class="bg-white rounded-lg p-1 border border-slate-200 flex shadow-sm">
+                        <button onclick="updateDashboardPeriod('today')" id="btn-period-today"
+                            class="px-4 py-2 text-sm font-medium rounded-md text-slate-600 hover:bg-slate-50 transition-colors">Hoy</button>
                         <button onclick="updateDashboardPeriod('month')" id="btn-period-month"
                             class="px-4 py-2 text-sm font-medium rounded-md transition-colors bg-blue-600 text-white">Este
                             Mes</button>
@@ -1013,17 +1015,21 @@
             currentPeriod = period;
 
             // Update buttons UI
-            document.getElementById('btn-period-month').className = period === 'month'
-                ? 'px-4 py-2 text-sm font-medium rounded-md transition-colors bg-blue-600 text-white'
-                : 'px-4 py-2 text-sm font-medium rounded-md text-slate-600 hover:bg-slate-50 transition-colors';
+            const activeClass = 'px-4 py-2 text-sm font-medium rounded-md transition-colors bg-blue-600 text-white';
+            const inactiveClass = 'px-4 py-2 text-sm font-medium rounded-md text-slate-600 hover:bg-slate-50 transition-colors';
 
-            document.getElementById('btn-period-quarter').className = period === 'quarter'
-                ? 'px-4 py-2 text-sm font-medium rounded-md transition-colors bg-blue-600 text-white'
-                : 'px-4 py-2 text-sm font-medium rounded-md text-slate-600 hover:bg-slate-50 transition-colors';
+            const btnToday = document.getElementById('btn-period-today');
+            if (btnToday) btnToday.className = period === 'today' ? activeClass : inactiveClass;
+
+            document.getElementById('btn-period-month').className = period === 'month' ? activeClass : inactiveClass;
+            document.getElementById('btn-period-quarter').className = period === 'quarter' ? activeClass : inactiveClass;
 
             let startDate;
             const today = new Date();
-            if (period === 'month') {
+
+            if (period === 'today') {
+                startDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+            } else if (period === 'month') {
                 startDate = new Date(today.getFullYear(), today.getMonth(), 1);
             } else {
                 startDate = new Date(today.getFullYear(), today.getMonth() - 2, 1);
@@ -1047,7 +1053,9 @@
                 let startDate;
                 const today = new Date();
 
-                if (period === 'month') {
+                if (period === 'today') {
+                    startDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+                } else if (period === 'month') {
                     // Start of current month
                     startDate = new Date(today.getFullYear(), today.getMonth(), 1);
                 } else {
@@ -1071,7 +1079,14 @@
                     // Adjust to local date string yyyy-mm-dd
                     const dateKey = dateDesc.toLocaleDateString('en-CA');
 
-                    if (period === 'month') {
+                    if (period === 'today') {
+                        // Check if contact is actually from today (API returns custom range, but date filter is strict)
+                        if (dateDesc.getDate() === today.getDate() && dateDesc.getMonth() === today.getMonth()) {
+                            const hour = dateDesc.getHours();
+                            const hourKey = `${String(hour).padStart(2, '0')}:00`;
+                            groupedData[hourKey] = (groupedData[hourKey] || 0) + 1;
+                        }
+                    } else if (period === 'month') {
                         groupedData[dateKey] = (groupedData[dateKey] || 0) + 1;
                     } else {
                         const monthKey = `${dateDesc.getFullYear()}-${String(dateDesc.getMonth() + 1).padStart(2, '0')}`;
@@ -1085,7 +1100,9 @@
 
                 // Format labels for display
                 const displayLabels = labels.map(label => {
-                    if (period === 'month') {
+                    if (period === 'today') {
+                        return label; // Already HH:00
+                    } else if (period === 'month') {
                         const [y, m, d] = label.split('-');
                         return `${d}/${m}`;
                     } else {
@@ -1145,7 +1162,9 @@
                 let startDate;
                 const today = new Date();
 
-                if (period === 'month') {
+                if (period === 'today') {
+                    startDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+                } else if (period === 'month') {
                     startDate = new Date(today.getFullYear(), today.getMonth(), 1);
                 } else {
                     startDate = new Date(today.getFullYear(), today.getMonth() - 2, 1);
@@ -1218,7 +1237,9 @@
                 let startDate;
                 const today = new Date();
 
-                if (period === 'month') {
+                if (period === 'today') {
+                    startDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+                } else if (period === 'month') {
                     startDate = new Date(today.getFullYear(), today.getMonth(), 1);
                 } else {
                     startDate = new Date(today.getFullYear(), today.getMonth() - 2, 1);
