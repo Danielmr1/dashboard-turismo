@@ -1487,13 +1487,15 @@
                     let estadoPago = 'Pendiente';
                     let estadoPagoColor = 'bg-slate-100 text-slate-700';
 
+                    const hasPayments = pkg.reserva_ids.some(id => payments?.some(p => p.reserva_id === id));
+
                     if (totalBalance >= montoTotal) {
                         estadoPago = 'Pagado';
                         estadoPagoColor = 'bg-emerald-100 text-emerald-700';
                     } else if (totalBalance > 0) {
                         estadoPago = 'Parcial';
                         estadoPagoColor = 'bg-yellow-100 text-yellow-700';
-                    } else if (totalBalance < 0) {
+                    } else if (hasPayments && totalBalance <= 0) {
                         estadoPago = 'Reembolsado';
                         estadoPagoColor = 'bg-blue-100 text-blue-700';
                     }
