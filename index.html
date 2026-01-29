@@ -422,15 +422,17 @@
                 <input type="hidden" id="inp-c-id">
                 <div>
                     <label class="block text-sm font-medium mb-1">Nombre Completo</label>
-                    <input type="text" id="inp-c-name" class="w-full px-3 py-2 border rounded-lg">
+                    <input type="text" id="inp-c-name" class="w-full px-3 py-2 border rounded-lg" autocomplete="off">
                 </div>
                 <div>
                     <label class="block text-sm font-medium mb-1">Whatsapp</label>
-                    <input type="text" id="inp-c-phone" class="w-full px-3 py-2 border rounded-lg" placeholder="+51...">
+                    <input type="text" id="inp-c-phone" class="w-full px-3 py-2 border rounded-lg" placeholder="+51..."
+                        autocomplete="off">
                 </div>
                 <div>
                     <label class="block text-sm font-medium mb-1">DNI (Opcional)</label>
-                    <input type="text" id="inp-c-dni" class="w-full px-3 py-2 border rounded-lg" placeholder="12345678">
+                    <input type="text" id="inp-c-dni" class="w-full px-3 py-2 border rounded-lg" placeholder="12345678"
+                        autocomplete="off">
                 </div>
                 <div class="grid grid-cols-2 gap-4">
                     <div>
@@ -498,21 +500,22 @@
                 <input type="hidden" id="inp-t-id">
                 <div>
                     <label class="block text-sm font-medium mb-1">Nombre del Tour</label>
-                    <input type="text" id="inp-t-name" class="w-full px-3 py-2 border rounded-lg">
+                    <input type="text" id="inp-t-name" class="w-full px-3 py-2 border rounded-lg" autocomplete="off">
                 </div>
                 <div>
                     <label class="block text-sm font-medium mb-1">Descripción (Opcional)</label>
-                    <input type="text" id="inp-t-desc" class="w-full px-3 py-2 border rounded-lg">
+                    <input type="text" id="inp-t-desc" class="w-full px-3 py-2 border rounded-lg" autocomplete="off">
                 </div>
                 <div class="grid grid-cols-2 gap-4">
                     <div>
                         <label class="block text-sm font-medium mb-1">Precio Referencial</label>
-                        <input type="number" id="inp-t-price" class="w-full px-3 py-2 border rounded-lg">
+                        <input type="number" id="inp-t-price" class="w-full px-3 py-2 border rounded-lg"
+                            autocomplete="off">
                     </div>
                     <div>
                         <label class="block text-sm font-medium mb-1">Duración</label>
                         <input type="text" id="inp-t-duration" class="w-full px-3 py-2 border rounded-lg"
-                            placeholder="Ej: 5 Horas">
+                            placeholder="Ej: 5 Horas" autocomplete="off">
                     </div>
                 </div>
             </div>
@@ -565,7 +568,7 @@
                 <div>
                     <label class="block text-sm font-medium mb-1">Monto (usar negativo para devolución)</label>
                     <input type="number" id="inp-p-monto" class="w-full px-3 py-2 border rounded-lg"
-                        placeholder="100 o -50" step="0.01">
+                        placeholder="100 o -50" step="0.01" autocomplete="off">
                     <p class="text-xs text-slate-500 mt-1">Ejemplo: 100 para pago, -50 para devolución</p>
                 </div>
 
@@ -582,7 +585,7 @@
 
                 <div>
                     <label class="block text-sm font-medium mb-1">Fecha de Pago</label>
-                    <input type="date" id="inp-p-fecha" class="w-full px-3 py-2 border rounded-lg">
+                    <input type="date" id="inp-p-fecha" class="w-full px-3 py-2 border rounded-lg" autocomplete="off">
                 </div>
 
                 <div>
@@ -632,30 +635,31 @@
                 <div class="grid grid-cols-3 gap-4">
                     <div>
                         <label class="block text-sm font-medium mb-1">PAX *</label>
-                        <input type="number" id="inp-r-pax" class="w-full px-3 py-2 border rounded-lg" min="1"
-                            value="1">
+                        <input type="number" id="inp-r-pax" class="w-full px-3 py-2 border rounded-lg" min="1" value="1"
+                            autocomplete="off">
                     </div>
                     <div>
                         <label class="block text-sm font-medium mb-1">Duración (días) *</label>
                         <input type="number" id="inp-r-duracion" class="w-full px-3 py-2 border rounded-lg" min="1"
-                            value="1">
+                            value="1" autocomplete="off">
                     </div>
                     <div>
                         <label class="block text-sm font-medium mb-1">Fecha de Reserva *</label>
-                        <input type="date" id="inp-r-fecha" class="w-full px-3 py-2 border rounded-lg">
+                        <input type="date" id="inp-r-fecha" class="w-full px-3 py-2 border rounded-lg"
+                            autocomplete="off">
                     </div>
                 </div>
 
                 <div>
                     <label class="block text-sm font-medium mb-1">Punto de Embarque</label>
                     <input type="text" id="inp-r-punto-embarque" class="w-full px-3 py-2 border rounded-lg"
-                        placeholder="Ej: Plaza de Armas / Hotel X">
+                        placeholder="Ej: Plaza de Armas / Hotel X" autocomplete="off">
                 </div>
 
                 <div>
                     <label class="block text-sm font-medium mb-1">Monto Total *</label>
                     <input type="number" id="inp-r-monto" class="w-full px-3 py-2 border rounded-lg" step="0.01"
-                        placeholder="300.00">
+                        placeholder="300.00" autocomplete="off">
                 </div>
             </div>
             <div class="p-6 border-t flex justify-end gap-3">
