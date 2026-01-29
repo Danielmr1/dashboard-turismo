@@ -2039,6 +2039,14 @@
                     alert(`El pago de S/ ${monto.toFixed(2)} excede el saldo pendiente de S/ ${saldoPendiente.toFixed(2)}.\n\nMonto máximo permitido: S/ ${saldoPendiente.toFixed(2)}`);
                     return;
                 }
+            } else if (monto < 0) {
+                // Validate refund doesn't exceed total paid amount
+                const balanceActual = parseFloat(document.getElementById('inp-p-balance-actual').value) || 0;
+
+                if (Math.abs(monto) > balanceActual) {
+                    alert(`La devolución de S/ ${Math.abs(monto).toFixed(2)} excede el monto total pagado de S/ ${balanceActual.toFixed(2)}.\n\nMonto máximo a devolver: S/ ${balanceActual.toFixed(2)}`);
+                    return;
+                }
             }
 
             if (!db) return;
