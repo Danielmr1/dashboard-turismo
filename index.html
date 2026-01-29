@@ -128,21 +128,50 @@
 
                 <!-- Metrics Grid -->
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                    <div class="bg-slate-900 text-white p-6 rounded-2xl shadow-lg">
-                        <p class="text-slate-400 text-xs font-semibold uppercase mb-1">Ingresos Estimados</p>
+                    <div class="bg-slate-900 text-white p-6 rounded-2xl shadow-lg relative group cursor-help">
+                        <p class="text-slate-400 text-xs font-semibold uppercase mb-1 flex items-center gap-1">
+                            Ingresos Estimados <span
+                                class="text-[10px] opacity-70 border border-slate-600 rounded px-1">Ventas</span>
+                        </p>
                         <h3 class="text-3xl font-bold" id="metric-revenue">S/ --</h3>
+                        <!-- Tooltip -->
+                        <div
+                            class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-black text-white text-xs rounded-lg shadow-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none w-48 text-center z-50 border border-slate-700">
+                            Total vendido en reservas creadas durante este periodo.
+                        </div>
                     </div>
-                    <div class="bg-slate-900 text-white p-6 rounded-2xl shadow-lg">
-                        <p class="text-slate-400 text-xs font-semibold uppercase mb-1">Turistas / Oportunidad</p>
+                    <div class="bg-slate-900 text-white p-6 rounded-2xl shadow-lg relative group cursor-help">
+                        <p class="text-slate-400 text-xs font-semibold uppercase mb-1 flex items-center gap-1">
+                            Turistas / Oportunidad <span
+                                class="text-[10px] opacity-70 border border-slate-600 rounded px-1">Captación</span>
+                        </p>
                         <h3 class="text-3xl font-bold" id="metric-conversion">-- / --</h3>
+                        <div
+                            class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-black text-white text-xs rounded-lg shadow-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none w-56 text-center z-50 border border-slate-700">
+                            (Izq) Pasajeros vendidos vs (Der) Nuevos Contactos creados.
+                        </div>
                     </div>
-                    <div class="bg-slate-900 text-white p-6 rounded-2xl shadow-lg">
-                        <p class="text-slate-400 text-xs font-semibold uppercase mb-1">Paquete Top</p>
+                    <div class="bg-slate-900 text-white p-6 rounded-2xl shadow-lg relative group cursor-help">
+                        <p class="text-slate-400 text-xs font-semibold uppercase mb-1 flex items-center gap-1">
+                            Paquete Top <span
+                                class="text-[10px] opacity-70 border border-slate-600 rounded px-1">Ventas</span>
+                        </p>
                         <h3 class="text-xl font-bold truncate" id="metric-top-tour">--</h3>
+                        <div
+                            class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-black text-white text-xs rounded-lg shadow-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none w-48 text-center z-50 border border-slate-700">
+                            Tour más vendido (en número de reservas) este periodo.
+                        </div>
                     </div>
-                    <div class="bg-slate-900 text-white p-6 rounded-2xl shadow-lg">
-                        <p class="text-slate-400 text-xs font-semibold uppercase mb-1">Origen Principal</p>
+                    <div class="bg-slate-900 text-white p-6 rounded-2xl shadow-lg relative group cursor-help">
+                        <p class="text-slate-400 text-xs font-semibold uppercase mb-1 flex items-center gap-1">
+                            Origen Principal <span
+                                class="text-[10px] opacity-70 border border-slate-600 rounded px-1">Leads</span>
+                        </p>
                         <h3 class="text-2xl font-bold" id="metric-top-origin">--</h3>
+                        <div
+                            class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-black text-white text-xs rounded-lg shadow-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none w-48 text-center z-50 border border-slate-700">
+                            Ciudad más frecuente de los contactos creados este periodo.
+                        </div>
                     </div>
                 </div>
 
@@ -156,20 +185,61 @@
 
                 <!-- Charts Row 2: Trend & Distribution -->
                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-                        <h3 class="text-lg font-bold text-slate-800 mb-4">Evolución de Nuevos Contactos</h3>
+                    <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 relative group z-0">
+                        <h3 class="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+                            Evolución de Nuevos Contactos
+                            <div class="relative group/icon inline-block">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-slate-400 cursor-help"
+                                    fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                <div
+                                    class="absolute top-6 left-0 bg-slate-800 text-white text-xs p-2 rounded shadow-lg opacity-0 group-hover/icon:opacity-100 transition-opacity pointer-events-none z-50 w-48 font-normal">
+                                    Muestra cuándo se crearon los contactos (Leads) en el sistema.
+                                </div>
+                            </div>
+                        </h3>
                         <div class="h-64"><canvas id="chartPaxTrend"></canvas></div>
                     </div>
-                    <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-                        <h3 class="text-lg font-bold text-slate-800 mb-4">Distribución por Ciudad</h3>
+                    <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 relative group z-0">
+                        <h3 class="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+                            Distribución por Ciudad <span
+                                class="text-xs font-normal text-slate-500 border border-slate-200 rounded px-1 ml-1">Operativo</span>
+                            <div class="relative group/icon inline-block">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-slate-400 cursor-help"
+                                    fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                <div
+                                    class="absolute top-6 right-0 bg-slate-800 text-white text-xs p-2 rounded shadow-lg opacity-0 group-hover/icon:opacity-100 transition-opacity pointer-events-none z-50 w-56 font-normal text-center">
+                                    Ciudad de origen de los pasajeros que tienen tours programados para este periodo.
+                                </div>
+                            </div>
+                        </h3>
                         <div class="h-64"><canvas id="chartCities"></canvas></div>
                     </div>
                 </div>
 
                 <!-- Charts Row 3: Top Tours -->
                 <div class="grid grid-cols-1 gap-6">
-                    <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-                        <h3 class="text-lg font-bold text-slate-800 mb-4">Top Tours por PAX</h3>
+                    <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 relative group z-0">
+                        <h3 class="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+                            Top Tours por PAX <span
+                                class="text-xs font-normal text-slate-500 border border-slate-200 rounded px-1 ml-1">Operativo</span>
+                            <div class="relative group/icon inline-block">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-slate-400 cursor-help"
+                                    fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                <div
+                                    class="absolute top-6 left-0 bg-slate-800 text-white text-xs p-2 rounded shadow-lg opacity-0 group-hover/icon:opacity-100 transition-opacity pointer-events-none z-50 w-64 font-normal">
+                                    Cantidad de pasajeros confirmados que viajan en los tours de este periodo.
+                                </div>
+                            </div>
+                        </h3>
                         <div class="h-64"><canvas id="chartTopTours"></canvas></div>
                     </div>
                 </div>
@@ -1075,13 +1145,17 @@
                 const groupedData = {};
 
                 contacts.forEach(c => {
-                    const dateDesc = new Date(c.creado_en);
+                    // Ensure date is treated as UTC
+                    const dateStr = c.creado_en.endsWith('Z') || c.creado_en.includes('+') ? c.creado_en : c.creado_en + 'Z';
+                    const dateDesc = new Date(dateStr);
+
                     // Adjust to local date string yyyy-mm-dd
                     const dateKey = dateDesc.toLocaleDateString('en-CA');
 
                     if (period === 'today') {
-                        // Check if contact is actually from today (API returns custom range, but date filter is strict)
-                        if (dateDesc.getDate() === today.getDate() && dateDesc.getMonth() === today.getMonth()) {
+                        // Check if contact is actually from today (Strict Local Match)
+                        // Note: startDate is 00:00 Local. dateDesc is now Local Object.
+                        if (dateDesc.getDate() === today.getDate() && dateDesc.getMonth() === today.getMonth() && dateDesc.getFullYear() === today.getFullYear()) {
                             const hour = dateDesc.getHours();
                             const hourKey = `${String(hour).padStart(2, '0')}:00`;
                             groupedData[hourKey] = (groupedData[hourKey] || 0) + 1;
