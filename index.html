@@ -286,6 +286,7 @@
                                 <th scope="col" class="px-6 py-3">Tour</th>
                                 <th scope="col" class="px-6 py-3 text-right">Monto</th>
                                 <th scope="col" class="px-6 py-3">Método</th>
+                                <th scope="col" class="px-6 py-3">Notas</th>
                                 <th scope="col" class="px-6 py-3">Fecha</th>
                             </tr>
                         </thead>
@@ -507,17 +508,22 @@
                     </select>
                 </div>
 
-                <div>
-                    <label class="block text-sm font-medium mb-1">Fecha de Pago</label>
-                    <input type="date" id="inp-p-fecha" class="w-full px-3 py-2 border rounded-lg">
-                </div>
+                <label class="block text-sm font-medium mb-1">Fecha de Pago</label>
+                <input type="date" id="inp-p-fecha" class="w-full px-3 py-2 border rounded-lg">
             </div>
-            <div class="p-6 border-t flex justify-end gap-3">
-                <button onclick="closeModal('payment')" class="px-4 py-2 text-slate-600">Cancelar</button>
-                <button onclick="savePayment()"
-                    class="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700">Guardar</button>
+
+            <div>
+                <label class="block text-sm font-medium mb-1">Notas (Opcional)</label>
+                <textarea id="inp-p-notas" class="w-full px-3 py-2 border rounded-lg" rows="2"
+                    placeholder="Motivo de la devolución o comentario del pago"></textarea>
             </div>
         </div>
+        <div class="p-6 border-t flex justify-end gap-3">
+            <button onclick="closeModal('payment')" class="px-4 py-2 text-slate-600">Cancelar</button>
+            <button onclick="savePayment()"
+                class="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700">Guardar</button>
+        </div>
+    </div>
     </div>
 
     <!-- New Reservation Modal -->
@@ -1717,6 +1723,7 @@
                     <div>
                         <div class="font-medium ${p.monto < 0 ? 'text-red-600' : ''}">S/ ${p.monto}</div>
                         <div class="text-xs text-slate-500">${p.metodo_pago} - ${p.fecha_pago ? p.fecha_pago.split('T')[0] : '-'}</div>
+                        ${p.notas ? `<div class="text-xs text-slate-400 italic">"${p.notas}"</div>` : ''}
                     </div>
                     ${p.monto > 0 ? `<button onclick='openRefundModal(${JSON.stringify({ reserva_id: p.reserva_id, cliente: data.cliente, monto_original: p.monto }).replace(/"/g, "&quot;")})' class="text-orange-600 text-xs hover:underline">Devolución</button>` : ''}
                 </div>
@@ -1887,6 +1894,7 @@
                         <td class="px-6 py-4 text-xs text-slate-500 align-top">${toursHtml}</td>
                         <td class="px-6 py-4 text-right font-bold align-top ${p.monto < 0 ? 'text-red-600' : ''}">S/ ${p.monto || 0}</td>
                         <td class="px-6 py-4 align-top">${p.metodo_pago || '-'}</td>
+                        <td class="px-6 py-4 text-xs text-slate-500 max-w-[200px] truncate align-top" title="${p.notas || ''}">${p.notas || '-'}</td>
                         <td class="px-6 py-4 align-top">${p.fecha_pago ? p.fecha_pago.split('T')[0] : '-'}</td>
                     </tr>
                 `}).join('');
@@ -1987,11 +1995,29 @@
             }, 100);
         }
 
+        function openRefundModal(data) {
+            // data contains { reserva_id, cliente, monto_original }
+            closeModal('reservation-detail');
+            setTimeout(async () => {
+                await openPaymentForReservation(data.reserva_id, data.cliente);
+
+                // Override fields for Refund Mode
+                const refundAmount = -Math.abs(data.monto_original);
+                document.getElementById('inp-p-monto').value = refundAmount;
+                document.getElementById('inp-p-metodo').value = 'Devolución';
+                document.getElementById('inp-p-notas').value = 'Devolución de pago';
+
+                // Optional: visual feedback
+                // document.getElementById('modal-payment').querySelector('h3').textContent = 'Registrar Devolución';
+            }, 100);
+        }
+
         async function savePayment() {
             const reservaId = document.getElementById('inp-p-reserva-id').value;
             const monto = parseFloat(document.getElementById('inp-p-monto').value);
             const metodo = document.getElementById('inp-p-metodo').value;
             const fecha = document.getElementById('inp-p-fecha').value;
+            const notas = document.getElementById('inp-p-notas').value.trim();
 
             if (!reservaId) {
                 alert('Debe seleccionar una reserva');
@@ -2024,6 +2050,7 @@
                     monto: monto,
                     metodo_pago: metodo,
                     fecha_pago: fecha,
+                    notas: notas,
                     creado_en: getPeruDateTime()
                 };
 
